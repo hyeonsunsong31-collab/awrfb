@@ -19,10 +19,10 @@ from jarvis.platform.win.scancodes import normalize_key
 
 
 class FakeInputSink:
-    def __init__(self, forbidden: set[str] | None = None) -> None:
+    def __init__(self, forbidden_keys=()) -> None:
         self.events: list[tuple[str, str]] = []
         self._held: list[str] = []
-        self._forbidden = forbidden or set()
+        self._forbidden = set(forbidden_keys)
 
     def key_down(self, key: str) -> None:
         k = normalize_key(key)
@@ -151,6 +151,7 @@ class FakeHotkeys:
 class FakeFrameSource:
     frames: list[np.ndarray] = field(default_factory=list)
     started: bool = False
+    max_fps: int = 120
 
     def start(self, window: WindowRef, on_frame: Callable[[Frame], None]) -> None:
         self.started = True

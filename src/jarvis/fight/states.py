@@ -21,6 +21,7 @@ class FightState(StrEnum):
     QUEUED = "queued"  # standing in a green box, waiting for an opponent
     FIGHTING = "fighting"
     POST_MATCH = "post_match"  # no input at all (the reward wheel is never touched)
+    CALIBRATING = "calibrating"  # owner-started `jarvis calibrate keys`: keymap actions, no HUD needed
 
 
 # None = every enabled keymap action.
@@ -31,15 +32,17 @@ ALLOWED_ACTIONS: dict[FightState, frozenset[str] | None] = {
     FightState.POST_MATCH: frozenset(),
     FightState.NAVIGATING: frozenset(MOVEMENT),
     FightState.FIGHTING: None,
+    FightState.CALIBRATING: None,
 }
 
 TRANSITIONS: dict[FightState, frozenset[FightState]] = {
-    FightState.DISARMED: frozenset({FightState.ARMED}),
+    FightState.DISARMED: frozenset({FightState.ARMED, FightState.CALIBRATING}),
     FightState.ARMED: frozenset({FightState.NAVIGATING, FightState.QUEUED, FightState.FIGHTING}),
     FightState.NAVIGATING: frozenset({FightState.ARMED, FightState.QUEUED}),
     FightState.QUEUED: frozenset({FightState.ARMED, FightState.FIGHTING}),
     FightState.FIGHTING: frozenset({FightState.POST_MATCH}),
     FightState.POST_MATCH: frozenset({FightState.ARMED}),
+    FightState.CALIBRATING: frozenset(),
 }
 
 

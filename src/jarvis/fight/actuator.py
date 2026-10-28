@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from jarvis.common.config import ActuatorConfig
-from jarvis.fight.gate import GateStatus
+from jarvis.fight.gate import INPUT_STATES, GateStatus
 from jarvis.fight.keymap import Keymap
 from jarvis.fight.states import FightState, action_allowed
 from jarvis.platform.base import InputSink, MouseButton, WindowManager, WindowRef
@@ -110,7 +110,7 @@ class Actuator:
     def set_state(self, state: FightState) -> None:
         with self._lock:
             self._state = state
-            if state not in (FightState.FIGHTING, FightState.NAVIGATING):
+            if state not in INPUT_STATES:
                 self._clear_queue()
                 self._release_all_locked(f"state -> {state.value}")
 
@@ -320,7 +320,7 @@ class Actuator:
         """Returns True if the watchdog fired."""
         now = self._now() if now is None else now
         with self._lock:
-            active = self._state in (FightState.FIGHTING, FightState.NAVIGATING) or bool(self._sink.held())
+            active = self._state in INPUT_STATES or bool(self._sink.held())
             if not active:
                 return False
             silent_ms = (now - self._last_heartbeat) / NS_PER_MS

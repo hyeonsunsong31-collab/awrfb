@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 from jarvis.fight.states import FightState
 
+INPUT_STATES = (FightState.FIGHTING, FightState.NAVIGATING, FightState.CALIBRATING)
+
 
 @dataclass
 class GateStatus:
@@ -24,7 +26,7 @@ class GateStatus:
     cursor_closes_gate: bool = True
 
     def check(self, state: FightState) -> tuple[bool, str]:
-        if state not in (FightState.FIGHTING, FightState.NAVIGATING):
+        if state not in INPUT_STATES:
             return False, f"no input allowed in state {state.value}"
         if not self.foreground:
             return False, "Roblox is not the foreground window"
