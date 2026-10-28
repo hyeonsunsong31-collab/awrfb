@@ -1,0 +1,24 @@
+# 12 GB+ cards: larger voice model, local 8B LLM on the GPU outside fights, local vision labelling.
+voice:
+  stt:
+    model: large-v3-turbo
+    compute_type: float16
+  tts:
+    engine: qwen3
+    qwen_base_model: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+    fallback_chain: [qwen3, supertonic, edge]
+    fight_engine: supertonic
+brain:
+  roles:
+    chat: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:8b"]}
+    agent: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:8b"]}
+    classifier: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:8b"]}
+    translator: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:8b"]}
+    coach: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:8b"]}
+    vision: {chain: ["nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b", "local:gemma4"]}
+    learner: {chain: ["local:qwen3:8b", "nvidia:nvidia/nemotron-3-super-120b-a12b"]}
+fight:
+  perception:
+    detector_every_n_frames: 1
+learn:
+  max_gpu_util_pct: 40

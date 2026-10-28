@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# Local runtime data (never commit recordings, models, secrets)
+/data/
+/models/
+/recordings/
+*.onnx
+*.pt
+*.engine
+*.mkv
+*.wav
+!tests/fixtures/**/*.wav
+.env
+*.token
+
+# HUD
+hud/node_modules/
+hud/out/
+hud/dist/
+hud/release/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,68 @@
+voice:
+  enabled: true
+  sample_rate: 16000
+  input_device: null            # null = Windows default microphone
+  output_device: null
+  followup_window_s: 8          # keep listening this long after a reply without a new wake word
+  wake:
+    model: hey_jarvis
+    threshold: 0.5
+    patience_frames: 2
+    second_stage: true          # owner voice + Whisper must hear "jarvis/자비스" too
+    second_stage_keywords: [jarvis, jervis, javis, 자비스, 재비스, 쟈비스]
+    optimistic_listen: true
+    debounce_s: 1.5
+  vad:
+    model_path: null            # null = models/silero_vad.onnx
+    threshold: 0.5
+    min_speech_ms: 250
+    min_silence_ms: 650
+    max_utterance_s: 20
+    pre_roll_ms: 300
+  stt:
+    model: large-v3-turbo
+    device: auto
+    compute_type: int8_float16
+    cpu_compute_type: int8
+    beam_size: 3
+    languages: [ko, en]
+    hotwords: [JARVIS, 자비스, Roblox, 로블록스, untitled boxing game, 멈춰, 싸워]
+    initial_prompt: "JARVIS, 자비스. 한국어와 English를 섞어서 말합니다."
+  tts:
+    engine: auto                # auto = decided by the VRAM tier overlay
+    fallback_chain: [supertonic, edge]
+    fight_engine: cache_only    # during fights only pre-rendered callouts play (zero GPU cost)
+    speed: 1.0
+    supertonic_voice: M1
+    supertonic_steps: 8
+    qwen_base_model: Qwen/Qwen3-TTS-12Hz-0.6B-Base
+    qwen_design_model: Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+    qwen_voice_ref_wav: null    # written by `jarvis setup voice`
+    qwen_voice_ref_text: null
+    voice_design_prompt: >-
+      An original, calm, refined, articulate middle-aged male butler voice with a warm baritone,
+      measured pace and dry wit. Do not imitate any real person or actor.
+    edge_voice_en: en-GB-RyanNeural
+    edge_voice_ko: ko-KR-InJoonNeural
+  barge_in:
+    duck_gain: 0.25
+    stop_after_ms: 300
+    require_owner_for_stop: true
+    backchannel_words: ["응", "네", "예", "음", "어", "yeah", "yes", "uh-huh", "mm", "ok", "okay", "right"]
+  aec:
+    enabled: true
+    reference: loopback         # loopback = everything the speakers play (TTS + Roblox audio)
+    delay_ms: 60                # measured by the setup chirp
+    noise_suppression: true
+    auto_gain_control: false
+    high_pass_filter: true
+  speaker:
+    enabled: true
+    threshold: 0.45
+    min_audio_s: 1.5
+    enrollment_seconds: 60
+    model: speechbrain/spkrec-ecapa-voxceleb
+  mute:
+    hotkey: ctrl+alt+m
+    start_muted: false
+    soft_mute: false            # true = while muted, only listen for "unmute / 음소거 해제"

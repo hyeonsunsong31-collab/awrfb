@@ -1,0 +1,91 @@
+# JARVIS default configuration. Override per-PC values in %LOCALAPPDATA%\Jarvis\config.yaml
+# (or with environment variables JARVIS__SECTION__KEY=value). Unknown keys are rejected.
+
+data_dir: null          # null = %LOCALAPPDATA%\Jarvis on Windows
+log_level: INFO
+language: auto          # auto | ko | en  (reply language; auto follows the user)
+
+ipc:
+  host: 127.0.0.1
+  bus_in_port: 47810
+  bus_out_port: 47811
+  rpc_ports: {supervisor: 47820, core: 47821, toolhost: 47822, fightd: 47823, learnerd: 47824}
+  hud_ws_port: 47830
+  request_timeout_s: 10.0
+
+hud:
+  enabled: true
+  content_protection: true      # keep the overlay out of screenshots/captures (Windows 10 2004+)
+  stream_mode: false            # true = let OBS record the overlay (disables content protection)
+  interactive_hotkey: ctrl+alt+j
+  combat_mode: dim              # dim | hide while fighting
+  combat_fps_cap: 30
+  prefer_secondary_monitor: true
+  gestures: false               # webcam hand gestures (MediaPipe); never active during fights
+  electron_dir: hud
+
+safety:
+  panic_hotkeys: [ctrl+alt+end, ctrl+shift+f12]
+  kill_words: [stop, abort, 멈춰, 그만, 정지, 스톱]
+  audit_enabled: true
+
+fight:
+  game:
+    place_id: 13621938427       # untitled boxing game (drowningsome)
+    launch_url_template: "roblox://experiences/start?placeId={place_id}"
+    private_server_url_template: "roblox://placeId={place_id}&linkCode={link_code}"
+    private_server_link_code: null
+    # Bots in public servers risk a ban (UBG rules name auto-dodging; Roblox ToS bans unfair automation).
+    allowed_servers: private      # private | public (public also requires i_accept_ban_risk: true)
+    i_accept_ban_risk: false
+    window_title: Roblox
+    process_name: RobloxPlayerBeta.exe
+    launch_timeout_s: 90
+  actuator:
+    heartbeat_timeout_ms: 500
+    gate_max_age_ms: 150
+    default_tap_ms: 45
+    feint_gap_ms: 70
+    physical_input_pause_ms: 1500
+  perception:
+    detector_model: null          # e.g. detector/active.onnx (set by the model registry)
+    detector_classes: [person]
+    detector_input: 640
+    detector_every_n_frames: 2
+    detector_conf: 0.25
+    threat_model: null            # e.g. threat/active.onnx
+    threat_window: 8
+    crop_size: 96
+    hud_conf_min: 0.6
+    max_process_fps: 120
+  recording:
+    enabled: true
+    width: 960
+    height: 540
+    encoder: auto                 # auto picks h264_nvenc when available
+    crf: 23
+    ffmpeg: ffmpeg
+    max_disk_gb: 80
+  shadow:
+    record_owner_inputs: false    # opt-in: log YOUR allowlisted game keys while UBG is focused
+  keymap_file: ubg/keymap.yaml
+  policy_file: ubg/policy_v0.yaml
+  knowledge_file: ubg/knowledge_seed.yaml
+  max_matches_per_arm: 1
+
+learn:
+  enabled: true
+  min_idle_s: 300
+  max_gpu_util_pct: 30
+  nightly_hour: 4
+  retrain_min_new_sessions: 3
+  video_ingest:
+    enabled: false
+    queries: ["untitled boxing game pvp", "untitled boxing game ranked", "언타이틀드 복싱 게임"]
+    max_videos_per_day: 10
+    max_gb: 20
+    local_folders: []
+
+tiers:
+  selected: auto                  # auto = use the tier measured by `jarvis doctor --vram`
+  min_free_mb_runtime: 400

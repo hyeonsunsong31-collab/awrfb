@@ -1,0 +1,31 @@
+# UBG action -> physical input. Defaults come from the game's official description (checked
+# Aug 2026): Space = dash, F = block (hold), M1 = light, M2 = heavy, M2+M1 = feint.
+# Wikis disagree on dodge/dash-back/ultimate keys and UBG lets you rebind everything except
+# movement, so those start disabled. `jarvis calibrate keys` sets `verified: true` per action after
+# it sees the game react, and writes the result to %LOCALAPPDATA%\Jarvis\calibration\keymap.yaml.
+actions:
+  move_forward: {key: w, verified: false}
+  move_back:    {key: s, verified: false}
+  move_left:    {key: a, verified: false}
+  move_right:   {key: d, verified: false}
+  dash:         {key: space, verified: false}
+  block:        {key: f, verified: false}
+  light:        {mouse: left, verified: false}
+  heavy:        {mouse: right, verified: false}
+  feint:        {combo: [heavy, light], verified: false}     # M2 then M1 (gap: fight.actuator.feint_gap_ms)
+  dash_forward: {chord: [move_forward, dash], verified: false}
+  dash_back:    {chord: [move_back, dash], verified: false}
+  dash_left:    {chord: [move_left, dash], verified: false}
+  dash_right:   {chord: [move_right, dash], verified: false}
+  dodge_left:   {key: q, enabled: false, verified: false}
+  dodge_right:  {key: e, enabled: false, verified: false}
+  ultimate:     {key: r, enabled: false, verified: false}
+  ability_1:    {key: "1", enabled: false, verified: false}
+  ability_2:    {key: "2", enabled: false, verified: false}
+  ability_3:    {key: "3", enabled: false, verified: false}
+
+camera:
+  # Relative mouse moves are only sent if calibration shows UBG needs camera turning
+  # (it may auto-face the opponent or use Side Camera). Never absolute clicks.
+  mouse_relative: false
+  max_step_px: 40

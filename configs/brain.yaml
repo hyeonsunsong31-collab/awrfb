@@ -1,0 +1,73 @@
+# LLM endpoints and roles. Each role has a chain "endpoint:model"; the broker walks the chain on
+# rate limits (429), server errors, timeouts, exhausted credits or no network, ending at local Ollama.
+# The NVIDIA free endpoint is a development trial (~40 RPM, limited credits) - we cap ourselves at 30.
+brain:
+  endpoints:
+    nvidia:
+      kind: nvidia
+      base_url: https://integrate.api.nvidia.com/v1
+      api_key_env: NVIDIA_API_KEY
+      keyring_service: jarvis
+      keyring_user: nvidia_api_key
+      timeout_s: 60
+      max_rpm: 30
+    local:
+      kind: ollama
+      base_url: http://127.0.0.1:11434/v1
+      local: true
+      timeout_s: 180
+      max_rpm: 600
+  roles:
+    # Voice replies: fastest path, owner is waiting.
+    chat:
+      chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]
+      priority: 0
+      max_tokens: 700
+      temperature: 0.6
+      tools: true
+    # Multi-step PC tasks.
+    agent:
+      chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]
+      priority: 1
+      max_tokens: 2048
+      temperature: 0.3
+      tools: true
+    # Screenshots / GUI control (set-of-marks) and offline frame labelling.
+    vision:
+      chain: ["nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b"]
+      priority: 1
+      max_tokens: 1024
+      temperature: 0.2
+      tools: true
+      vision: true
+    # Capability scoping of the owner's request (trusted channel only).
+    classifier:
+      chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]
+      priority: 0
+      max_tokens: 200
+      temperature: 0.0
+    translator:
+      chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]
+      priority: 0
+      max_tokens: 500
+      temperature: 0.2
+    # Between-match fight coach (never in the real-time loop).
+    coach:
+      chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]
+      priority: 2
+      max_tokens: 800
+      temperature: 0.4
+    # Background learner: local first to save NVIDIA quota.
+    learner:
+      chain: ["local:qwen3:4b", "nvidia:nvidia/nemotron-3-super-120b-a12b"]
+      priority: 3
+      max_tokens: 1500
+      temperature: 0.2
+  probe_cache_hours: 24
+  agent_max_steps: 16
+  agent_max_parallel_tools: 4
+  persona_name: JARVIS
+  owner_title_en: sir
+  owner_title_ko: 주인님
+  memory_summary_every_turns: 12
+  history_max_messages: 40

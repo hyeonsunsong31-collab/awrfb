@@ -1,0 +1,107 @@
+# Default safety policy. `scripts/install.ps1` copies this ONCE (admin prompt) to
+# %ProgramData%\Jarvis\safety.yaml and makes it read-only for your user, so the agent - which runs
+# without admin rights - cannot loosen its own rules. Edit the protected copy as admin if you must.
+#
+# JARVIS is fully autonomous (it never asks for confirmation). This file is the floor it cannot cross.
+version: 1
+
+# Deleting, moving or overwriting these paths (or system folders below them) is refused.
+# Normal files inside your user folders are fine - deletes go to the Recycle Bin.
+protected_roots:
+  - "C:\\"
+  - "C:\\Windows"
+  - "C:\\Program Files"
+  - "C:\\Program Files (x86)"
+  - "C:\\ProgramData"
+  - "C:\\Users"
+  - "%USERPROFILE%"
+  - "%USERPROFILE%\\AppData"
+  - "%USERPROFILE%\\Documents"
+  - "%USERPROFILE%\\Desktop"
+  - "%USERPROFILE%\\Pictures"
+  - "%USERPROFILE%\\Downloads"
+protected_trees:            # nothing inside these may be deleted/moved/overwritten at all
+  - "C:\\Windows"
+  - "C:\\Program Files"
+  - "C:\\Program Files (x86)"
+  - "C:\\ProgramData\\Jarvis"
+  - "%LOCALAPPDATA%\\Jarvis\\audit"
+
+# PowerShell commands that are always refused (matched case-insensitively on the parsed command name).
+denied_commands:
+  - Format-Volume
+  - Clear-Disk
+  - Initialize-Disk
+  - Remove-Partition
+  - Set-Partition
+  - Remove-PhysicalDisk
+  - Disable-ComputerRestore
+  - Set-MpPreference
+  - Add-MpPreference
+  - Remove-MpPreference
+  - Uninstall-WindowsFeature
+  - Disable-WindowsOptionalFeature
+  - Set-NetFirewallProfile
+  - Disable-NetFirewallRule
+  - Clear-RecycleBin
+  - Clear-EventLog
+  - Remove-EventLog
+  - diskpart
+  - format
+  - bcdedit
+  - vssadmin
+  - wbadmin
+  - cipher
+  - takeown
+  - sdelete
+  # Running strings as code is how downloaded payloads execute; the agent never needs it.
+  - Invoke-Expression
+  - iex
+  # Deletes must go through the files.delete tool (Recycle Bin), never the shell.
+  - Remove-Item
+  - del
+  - erase
+  - rd
+  - rmdir
+  - rm
+  - ri
+
+# Regexes checked against the whole normalized command line (case-insensitive).
+denied_patterns:
+  - "(^|\\s)-(e|ec|en|enc|enco|encod|encode|encoded|encodedc|encodedco|encodedcom|encodedcomm|encodedcomma|encodedcomman|encodedcommand)(\\s|$)"
+  - "frombase64string"
+  - "netsh\\s+advfirewall\\s+set\\s+\\S+\\s+state\\s+off"
+  - "netsh\\s+firewall\\s+set\\s+opmode\\s+disable"
+  - "reg(\\.exe)?\\s+delete\\s+(hklm|hkey_local_machine|hkcr|hkey_classes_root)"
+  - "sc(\\.exe)?\\s+(stop|delete|config)\\s+(windefend|wscsvc|mpssvc)"
+  - "\\bshadowcopy\\b.*\\bdelete\\b"
+  - "invoke-(webrequest|restmethod).*\\|\\s*(iex|invoke-expression)"
+  - "\\b(iex|invoke-expression)\\b.*\\b(downloadstring|invoke-webrequest|iwr|irm)\\b"
+
+# Never press/click UI elements whose name contains any of these (case-insensitive).
+payment_keywords:
+  - buy
+  - purchase
+  - pay now
+  - checkout
+  - check out
+  - place order
+  - confirm order
+  - complete order
+  - subscribe
+  - robux
+  - 결제
+  - 구매
+  - 구입
+  - 주문하기
+  - 결제하기
+  - 구매하기
+  - 충전
+detect_card_numbers: true   # refuse to type digit runs that pass the Luhn check
+
+# Only fightd may send input to Roblox; general tools refuse these windows/processes.
+roblox_window_titles: [Roblox]
+roblox_process_names: [RobloxPlayerBeta.exe, Windows10Universal.exe]
+
+shell_timeout_s: 120
+max_file_write_mb: 50

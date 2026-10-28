@@ -1,0 +1,20 @@
+# 8 GB cards: Qwen3-TTS-0.6B on the GPU outside fights; CPU voice (or cached callouts) in fights.
+voice:
+  stt:
+    model: large-v3-turbo
+    compute_type: int8_float16
+  tts:
+    engine: qwen3
+    qwen_base_model: Qwen/Qwen3-TTS-12Hz-0.6B-Base
+    fallback_chain: [qwen3, supertonic, edge]
+    fight_engine: cache_only
+brain:
+  roles:
+    chat: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]}
+    agent: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]}
+    learner: {chain: ["local:qwen3:4b", "nvidia:nvidia/nemotron-3-super-120b-a12b"]}
+fight:
+  perception:
+    detector_every_n_frames: 2
+learn:
+  max_gpu_util_pct: 30

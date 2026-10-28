@@ -1,0 +1,23 @@
+# 6 GB cards: Roblox + Windows + HUD leave ~3-3.5 GB. Whisper turbo int8 (~1 GB) and the fight
+# models (~0.3 GB) fit on the GPU; the voice runs on the CPU; the local LLM is a CPU-only fallback.
+voice:
+  stt:
+    model: large-v3-turbo
+    compute_type: int8_float16
+  tts:
+    engine: supertonic
+    fallback_chain: [supertonic, edge]
+    fight_engine: cache_only
+brain:
+  roles:
+    chat: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]}
+    agent: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]}
+    classifier: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]}
+    translator: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]}
+    coach: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:4b"]}
+    learner: {chain: ["local:qwen3:4b", "nvidia:nvidia/nemotron-3-super-120b-a12b"]}
+fight:
+  perception:
+    detector_every_n_frames: 2
+learn:
+  max_gpu_util_pct: 20
