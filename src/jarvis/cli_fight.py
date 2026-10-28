@@ -173,6 +173,30 @@ def _run_key_verification(actions: list[str] | None, repeats: int, kind: str) ->
     return reports
 
 
+@calibrate_app.command("popup")
+def calibrate_popup_cmd(name: str = typer.Argument(..., help="e.g. shop, spin, reward_wheel, purchase")) -> None:
+    """Capture the UI currently open in UBG (shop/spin/wheel...) so fights never act on that screen."""
+    from jarvis.fight.perception.ui_guard import UiGuard
+
+    cfg = _cfg()
+    paths = cfg.paths().ensure()
+    io = _io(cfg)
+    io.attach()
+    io.start(capture=True)
+    try:
+        console.print(f"Open the '{name}' screen in UBG now. Capturing in 4 seconds...")
+        io.focus_game()
+        time.sleep(4)
+        f = io.frames.get_newer(0, 2.0)
+        if f is None:
+            console.print("[red]no frame captured[/]")
+            raise typer.Exit(1)
+        p = UiGuard.save_popup_template(f.image, paths.calibration / "popups", name)
+    finally:
+        io.stop()
+    console.print(f"saved popup template: {p}")
+
+
 @calibrate_app.command("keys")
 def calibrate_keys_cmd(
     actions: str = typer.Option("", help="Comma-separated actions (default: every enabled action)."),
@@ -209,9 +233,75 @@ def report(
     console.print(f"report: {out} ({out.stat().st_size / 2**20:.1f} MB) - contains no API keys or passwords")
 
 
+def fight(
+    matches: int = typer.Option(1, help="How many matches to fight before disarming."),
+    auto_queue: bool = typer.Option(False, help="Walk to a free ring box by itself (WASD only)."),
+    hotkey: str = typer.Option("ctrl+alt+f", help="Arm/disarm toggle hotkey."),
+    arm_now: bool = typer.Option(False, "--arm-now", help="Arm immediately instead of waiting for the hotkey."),
+) -> None:
+    """Fight in UBG (owner command). Stand in a ring box in your private server, then press the hotkey."""
+    from jarvis.fight.loop import ArmRefused, FightLoop
+    from jarvis.fight.states import FightState
+
+    cfg = _cfg()
+    io = _io(cfg)
+    io.attach()
+    io.start()
+    loop = FightLoop(cfg, io, on_callout=lambda k, d: console.print(f"[cyan]{k}[/] {d if d else ''}"))
+    loop.start()
+
+    def toggle() -> None:
+        if io.sm.state == FightState.DISARMED:
+            try:
+                io.focus_game()
+                loop.arm(matches, auto_queue)
+                console.print("[green]ARMED[/] - waiting for the match")
+            except ArmRefused as e:
+                console.print(f"[red]refused:[/] {e}")
+        else:
+            loop.disarm("owner hotkey")
+            console.print("[yellow]DISARMED[/]")
+
+    hk = io.plat.new_hotkeys()
+    hk.register(hotkey, toggle)
+    hk.start()
+    console.print(f"Arm/disarm: {hotkey}   Panic: {', '.join(cfg.safety.panic_hotkeys)}   Ctrl+C quits")
+    problems = loop.preflight()
+    for pr in problems:
+        console.print(f"[yellow]preflight:[/] {pr}")
+    if arm_now:
+        toggle()
+    try:
+        last = None
+        while True:
+            time.sleep(0.5)
+            st = io.sm.state.value
+            if st != last:
+                console.print(f"state: {st}")
+                last = st
+    except KeyboardInterrupt:
+        pass
+    finally:
+        hk.stop()
+        loop.stop()
+        io.stop()
+
+
+def fightd() -> None:
+    """Run the fight daemon (normally started by the supervisor)."""
+    from jarvis.common.logging_setup import setup_logging
+    from jarvis.fight.fightd import main as fightd_main
+
+    cfg = _cfg()
+    setup_logging("fightd", cfg.paths().ensure().logs, cfg.log_level)
+    fightd_main(cfg)
+
+
 def register(app: typer.Typer) -> None:
     app.command()(launch)
     app.command("capture-test")(capture_test)
     app.add_typer(calibrate_app, name="calibrate")
     app.command()(report)
+    app.command()(fight)
+    app.command()(fightd)
 

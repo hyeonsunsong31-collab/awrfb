@@ -1,0 +1,37 @@
+# Heuristic fighter v0 parameters. Every number here is a starting guess that calibration
+# (`jarvis calibrate range`) and fight data refine; tactics override subsets of them.
+spacing:
+  h_close: 0.55          # opponent box height (fraction of frame) when touching - follow camera
+  h_far: 0.18            # ... when far away
+  preferred_gap: 0.25    # 0 = touching, 1 = far
+  attack_gap: 0.35       # our punches can land at or below this gap
+  retreat_gap: 0.08
+threat:
+  block_p: 0.55          # P(hit within 200 ms) at/above which we hold block
+  block_release_p: 0.30  # hysteresis: keep blocking until threat falls below this
+  dodge_p: 0.85          # reactive dodge (only with dodge enabled + stamina + no recent dash)
+  min_block_ms: 180
+  max_block_ms: 900      # long blocks break guard in UBG; let go and reassess
+  hit_reaction_block_ms: 350   # after taking a hit, block briefly (combos follow)
+  guard_low: 0.2         # below this guard fraction, prefer spacing over blocking
+stamina:
+  reserve: 0.25          # below: no dashes, fewer attacks (stamina break = ~2 s stun)
+  critical: 0.12         # below: block and back off only
+attack:
+  jab_interval_ms: 260
+  max_jab_chain: 3
+  chain_pause_ms: 420
+  heavy_chance: 0.18
+  feint_chance: 0.10
+  punish_window_ms: 350  # after blocking a hit, counter within this window
+  guard_break_after_blocked: 3  # our hits not landing this many times in a row -> heavy
+  heavy_tap_ms: 90
+dash:
+  enabled: true
+  min_interval_ms: 1100
+  lockout_after_dash_ms: 1000   # community guide: no perfect dodge ~1 s after dashing
+movement:
+  approach_when_gap_over: 0.12  # added to preferred_gap
+tactics:
+  period_ms: 4000         # how often the bandit may switch tactic
+  discount: 0.97
