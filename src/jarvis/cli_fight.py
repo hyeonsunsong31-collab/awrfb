@@ -297,6 +297,83 @@ def fightd() -> None:
     fightd_main(cfg)
 
 
+def _session(path: str):
+    from pathlib import Path as _P
+
+    cfg = _cfg()
+    p = _P(path)
+    if not p.exists():
+        p = cfg.paths().recordings / path
+    if not p.exists():
+        console.print(f"[red]no such session: {path}[/]")
+        raise typer.Exit(1)
+    return cfg, p
+
+
+def shadow(
+    minutes: float = typer.Option(10.0, help="How long to watch."),
+    record_my_keys: bool = typer.Option(False, help="Also record YOUR game keys (only while UBG is focused, chat closed)."),
+) -> None:
+    """Shadow mode: you fight, JARVIS records and logs what it would have done (sends no input)."""
+    from jarvis.fight.loop import load_detector
+    from jarvis.fight.replay import replay_session, shadow_report
+
+    cfg = _cfg()
+    record = record_my_keys or cfg.fight.shadow.record_owner_inputs
+    io = _io(cfg)
+    io.attach()
+    io.start()
+    try:
+        from jarvis.fight.shadow import run_shadow
+
+        console.print(f"Shadow mode for {minutes} min - just play. Recording your keys: {record}")
+        d = run_shadow(cfg, io, minutes=minutes, record_owner_keys=record, detector=load_detector(cfg))
+    finally:
+        io.stop()
+    from jarvis.fight.keymap import load_keymap
+    from jarvis.fight.perception.layout import load_layout
+    from jarvis.fight.policy.params import load_params
+
+    paths = cfg.paths()
+    rep = replay_session(d, load_layout(paths.calibration), load_keymap(paths.calibration), load_params(calibration_dir=paths.calibration),
+                         calibration_dir=paths.calibration)
+    report = shadow_report(rep, d)
+    (d / "shadow_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    console.print_json(json.dumps(report))
+    console.print(f"session: {d}")
+
+
+def replay(session: str, seed: int = 0, save: bool = typer.Option(False, help="Save expected output for regression.")) -> None:
+    """Replay a recorded session through perception + policy (deterministic)."""
+    from jarvis.fight.keymap import load_keymap
+    from jarvis.fight.perception.layout import load_layout
+    from jarvis.fight.policy.params import load_params
+    from jarvis.fight.replay import replay_session, shadow_report
+
+    cfg, d = _session(session)
+    paths = cfg.paths()
+    layout = load_layout(paths.calibration)
+    if layout is None:
+        console.print("[red]no HUD calibration[/]")
+        raise typer.Exit(1)
+    res = replay_session(d, layout, load_keymap(paths.calibration), load_params(calibration_dir=paths.calibration),
+                         calibration_dir=paths.calibration, seed=seed)
+    out = {"frames": res.frames, "decisions": len(res.decisions), "digest": res.digest(), "shadow": shadow_report(res, d)}
+    if save:
+        (d / "replay_expected.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    console.print_json(json.dumps(out))
+
+
+def overlay(session: str) -> None:
+    """Render the proof video: what JARVIS saw and did, drawn over the recording."""
+    from jarvis.fight.perception.layout import load_layout
+    from jarvis.fight.replay import render_overlay
+
+    cfg, d = _session(session)
+    out = render_overlay(d, d / "overlay.mp4", load_layout(cfg.paths().calibration), cfg.fight.recording.ffmpeg)
+    console.print(f"overlay video: {out}")
+
+
 def register(app: typer.Typer) -> None:
     app.command()(launch)
     app.command("capture-test")(capture_test)
@@ -304,4 +381,7 @@ def register(app: typer.Typer) -> None:
     app.command()(report)
     app.command()(fight)
     app.command()(fightd)
+    app.command()(shadow)
+    app.command()(replay)
+    app.command()(overlay)
 
