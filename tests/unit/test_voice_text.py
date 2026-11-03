@@ -175,3 +175,25 @@ def test_wake_word_strip_and_kill_phrase():
     assert strip_wake_word("Jarvisopen") == "Jarvisopen"
     assert is_kill_phrase("그만", ["그만"])
     assert not is_kill_phrase("I can't stop thinking about pizza tonight", ["stop"])
+
+
+@pytest.mark.parametrize(
+    ("text", "name", "panel"),
+    [
+        ("hide the panels", "hud_hide", "all"),
+        ("전투 패널 보여줘", "hud_show", "fight"),
+        ("show the fight panel", "hud_show", "fight"),
+        ("HUD 숨겨", "hud_hide", "all"),
+        ("홀로그램 켜", "hud_show", "all"),
+        ("시스템 패널 숨겨", "hud_hide", "stats"),
+    ],
+)
+def test_hud_panel_intents(text, name, panel):
+    i = match_intent(text)
+    assert i is not None and i.name == name and i.args == {"panel": panel} and i.trust == Trust.ANY
+
+
+def test_hud_words_do_not_steal_other_commands():
+    assert match_intent("마이크 꺼").name == "mute"
+    assert match_intent("음악 꺼").name == "media_pause"
+    assert match_intent("show me the fight status").name == "fight_status"

@@ -92,7 +92,7 @@ def _register_subcommands() -> None:
     """Later milestones attach their command groups here (fight, calibrate, voice, ...)."""
     import importlib
 
-    for mod in ("jarvis.cli_fight", "jarvis.cli_voice", "jarvis.cli_learn", "jarvis.cli_setup", "jarvis.cli_run"):
+    for mod in ("jarvis.cli_fight", "jarvis.cli_voice", "jarvis.cli_hud", "jarvis.cli_learn", "jarvis.cli_setup", "jarvis.cli_run"):
         try:
             m = importlib.import_module(mod)
         except ModuleNotFoundError as e:

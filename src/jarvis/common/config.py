@@ -210,6 +210,8 @@ class HudConfig(_Model):
     prefer_secondary_monitor: bool = True
     gestures: bool = False
     electron_dir: str = "hud"
+    telemetry_hz: float = 15.0  # fight telemetry forwarded to the HUD
+    pip_fps: float = 5.0  # picture-in-picture of what fightd sees (0 = off)
 
 
 # ------------------------------------------------------------------------------------------ safety

@@ -145,11 +145,19 @@ class Core:
         self.server = RpcServer("core", ports["core"], self.token, host)
         for name in ("status", "chat", "mute", "unmute", "stop"):
             self.server.add(name, getattr(self, f"rpc_{name}"))
+        self.hub = None
+        if cfg.hud.enabled:
+            from jarvis.hud_bridge.hub import HudHub
+
+            self.hub = HudHub(host, cfg.ipc.hud_ws_port, self.token, self._hud_command,
+                              rates_hz={"fight.telemetry": cfg.hud.telemetry_hz, "fight.frame": max(cfg.hud.pip_fps, 0.1)})
         self._bg: set[asyncio.Task] = set()
 
     # ------------------------------------------------------------------ helpers
     def publish(self, topic: str, payload: dict) -> None:
         self.pub.publish(topic, payload)
+        if self.hub is not None:
+            self.hub.broadcast(topic, payload)
 
     def _spawn(self, coro) -> None:
         t = asyncio.get_running_loop().create_task(coro)
@@ -299,6 +307,48 @@ class Core:
             self.session.interpreter = False
             await reply.say(phrase("interpreter_off", utt.lang), key="interpreter_off")
 
+    async def _hud_panels(self, utt: Utterance, reply: ReplySink, action: str) -> None:
+        panel = utt.intent.args.get("panel", "all") if utt.intent else "all"
+        self.publish("hud.command", {"action": action, "panel": panel, "t": time.time()})
+        await reply.say("알겠습니다." if utt.lang == "ko" else "Done.")
+
+    async def _intent_hud_show(self, utt: Utterance, reply: ReplySink) -> None:
+        await self._hud_panels(utt, reply, "show")
+
+    async def _intent_hud_hide(self, utt: Utterance, reply: ReplySink) -> None:
+        await self._hud_panels(utt, reply, "hide")
+
+    async def _hud_command(self, cmd: dict) -> dict:
+        """Commands from the HUD (token-authenticated, typed by the owner at this PC)."""
+        kind = cmd.get("type")
+        s = self.session
+        if kind == "stop":
+            self.kill_switch.trigger("HUD stop button")
+        elif kind == "disarm":
+            return await self._fightd("disarm", {"reason": "HUD"}, timeout=3.0)
+        elif s is None:
+            return {"ok": False, "error": "core is starting"}
+        elif kind == "chat":
+            text = str(cmd.get("text", ""))[:2000]
+            await s.typed(text, speak=bool(cmd.get("speak", self.runtime is not None)))
+        elif kind == "mute":
+            s.mute(soft=bool(cmd.get("soft", False)))
+        elif kind == "unmute":
+            s.unmute()
+        elif kind == "interpreter":
+            s.interpreter = bool(cmd.get("on", False))
+            s.publish("voice.state", {"mode": s.barge.mode.value, "muted": s.muted, "interpreter": s.interpreter, "lang": s.lang})
+        return {"ok": True}
+
+    async def _stats_loop(self) -> None:
+        from jarvis.hud_bridge.stats import StatsSampler
+
+        sampler = StatsSampler()
+        while True:
+            if self.hub is not None and self.hub.clients:
+                self.hub.broadcast("system.stats", await asyncio.to_thread(sampler.sample))
+            await asyncio.sleep(1.0)
+
     # ------------------------------------------------------------------ RPC
     def rpc_status(self, _p: dict) -> dict:
         s = self.session
@@ -337,7 +387,7 @@ class Core:
 
     # ------------------------------------------------------------------ bus
     async def _bus_listener(self) -> None:
-        sub = AsyncSubscriber(self.cfg.ipc.bus_out_port, ["fight.state", "fight.callout", "fight.panic", "kill"], self.cfg.ipc.host)
+        sub = AsyncSubscriber(self.cfg.ipc.bus_out_port, ["fight.", "kill"], self.cfg.ipc.host)
         try:
             while True:
                 topic, msg = await sub.recv()
@@ -349,6 +399,8 @@ class Core:
             sub.close()
 
     async def _on_bus(self, topic: str, msg: dict) -> None:
+        if self.hub is not None and topic.startswith("fight."):
+            self.hub.broadcast(topic, msg)
         if topic == "fight.state":
             self.fight_state = str(msg.get("new", self.fight_state))
         elif topic == "fight.callout":
@@ -384,6 +436,13 @@ class Core:
             self.session = self._text_session()
             await self.session.start()
         self._spawn(self._bus_listener())
+        if self.hub is not None:
+            try:
+                await self.hub.start()
+                self._spawn(self._stats_loop())
+            except OSError as e:
+                log.warning("HUD hub could not listen on port %s: %s", self.cfg.ipc.hud_ws_port, e)
+                self.hub = None
         log.info("core ready (voice=%s) on port %s", self.runtime is not None, self.server.port)
         try:
             while True:
@@ -395,6 +454,8 @@ class Core:
                 await self.session.close()
             for t in list(self._bg):
                 t.cancel()
+            if self.hub is not None:
+                await self.hub.stop()
             await self.server.close()
             self.memory.close()
             self.pub.close()

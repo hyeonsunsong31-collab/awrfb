@@ -51,6 +51,30 @@ class FightDaemon:
         finally:
             pub.close()
 
+    async def _pip(self) -> None:
+        """Small JPEG thumbnails of what fightd sees, for the HUD's picture-in-picture."""
+        fps = self.cfg.hud.pip_fps
+        if not self.cfg.hud.enabled or fps <= 0:
+            return
+        import base64
+
+        import cv2
+
+        last = -1
+        while True:
+            await asyncio.sleep(1.0 / fps)
+            io = self.io
+            f = io.frames.peek() if io is not None else None
+            if f is None or f.index == last:
+                continue
+            last = f.index
+            h, w = f.image.shape[:2]
+            small = cv2.resize(f.image, (320, max(1, round(h * 320 / w))), interpolation=cv2.INTER_AREA)
+            ok, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            if ok:
+                self.emit("fight.frame", {"jpg": base64.b64encode(buf.tobytes()).decode(), "w": small.shape[1],
+                                          "h": small.shape[0], "index": f.index})
+
     async def _kill_listener(self) -> None:
         sub = AsyncSubscriber(self.cfg.ipc.bus_out_port, ["kill"], self.cfg.ipc.host)
         try:
@@ -156,7 +180,8 @@ class FightDaemon:
         self._aloop = asyncio.get_running_loop()
         self._outbox = asyncio.Queue(maxsize=1000)
         await self.server.start()
-        tasks = [asyncio.create_task(self._publisher()), asyncio.create_task(self._kill_listener())]
+        tasks = [asyncio.create_task(self._publisher()), asyncio.create_task(self._kill_listener()),
+                 asyncio.create_task(self._pip())]
         log.info("fightd ready on port %s", self.server.port)
         try:
             while True:

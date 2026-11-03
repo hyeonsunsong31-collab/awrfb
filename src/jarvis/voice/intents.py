@@ -123,11 +123,33 @@ _COMPILED: tuple[tuple[_Rule, tuple[str, ...]], ...] = tuple(
 )
 
 
+_HUD_WORDS = ("hud", "panel", "panels", "hologram", "holograms", "overlay", "패널", "홀로그램", "화면")
+_HUD_SHOW = ("show", "open", "display", "bring up", "보여", "켜", "띄워")
+_HUD_HIDE = ("hide", "close", "clear", "숨겨", "꺼", "치워", "정리")
+_HUD_PANELS = {"fight": ("fight", "match", "전투", "경기"), "stats": ("stats", "system", "상태", "시스템"),
+               "chat": ("chat", "채팅"), "transcript": ("transcript", "conversation", "대화", "자막")}
+
+
+def _hud_intent(t: str, raw: str) -> Intent | None:
+    """"hide the panels" / "전투 패널 보여" -> show/hide HUD panels (harmless, any voice)."""
+    if len(t.split()) > 6 or not any(_contains(t, w) for w in _HUD_WORDS):
+        return None
+    hide = any(_contains(t, w) for w in _HUD_HIDE)
+    show = any(_contains(t, w) for w in _HUD_SHOW)
+    if hide == show:
+        return None
+    panel = next((p for p, ws in _HUD_PANELS.items() if any(_contains(t, w) for w in ws)), "all")
+    return Intent("hud_hide" if hide else "hud_show", Trust.ANY, {"panel": panel}, raw)
+
+
 def match_intent(text: str, fuzzy_threshold: int = 90) -> Intent | None:
     raw = text.strip()
     t = normalize(raw)
     if not t:
         return None
+    hud = _hud_intent(t, raw)
+    if hud is not None:
+        return hud
     words = len(t.split())
     question = raw.rstrip().endswith(("?", "？"))
     negated = _NEGATION.search(t) is not None
