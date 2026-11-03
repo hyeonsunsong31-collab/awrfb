@@ -19,6 +19,7 @@ import hmac
 import json
 import logging
 import time
+from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -27,6 +28,9 @@ log = logging.getLogger(__name__)
 COMMANDS = frozenset({"chat", "mute", "unmute", "stop", "disarm", "interpreter"})
 # Latest value of these is replayed to every new client.
 STICKY = frozenset({"voice.state", "voice.notes", "fight.state", "fight.telemetry", "system.stats", "hud.command"})
+# The recent conversation is replayed too, so a restarted HUD shows the last exchanges.
+HISTORY = frozenset({"voice.transcript", "voice.reply_done", "voice.rejected"})
+HISTORY_LEN = 24
 AUTH_TIMEOUT_S = 3.0
 
 CommandHandler = Callable[[dict[str, Any]], Awaitable[dict[str, Any] | None]]
@@ -68,6 +72,7 @@ class HudHub:
         self._clients: set[_Client] = set()
         self._last: dict[str, float] = {}
         self.snapshot: dict[str, Any] = {}
+        self.history: deque[tuple[str, Any]] = deque(maxlen=HISTORY_LEN)
         self._server = None
 
     @property
@@ -92,6 +97,8 @@ class HudHub:
         """Call from the event-loop thread. Cheap when no HUD is connected."""
         if topic in STICKY:
             self.snapshot[topic] = data
+        elif topic in HISTORY:
+            self.history.append((topic, data))
         if not self._clients:
             return
         rate = self._rates.get(topic)
@@ -116,7 +123,8 @@ class HudHub:
             await ws.close(4401, "bad token")
             return
         client = _Client(ws, self._queue_size)
-        await ws.send(json.dumps({"type": "hello", "snapshot": self.snapshot}, ensure_ascii=False, default=str))
+        hello = {"type": "hello", "snapshot": self.snapshot, "history": [{"topic": t, "data": d} for t, d in self.history]}
+        await ws.send(json.dumps(hello, ensure_ascii=False, default=str))
         self._clients.add(client)
         sender = asyncio.create_task(self._sender(client))
         try:

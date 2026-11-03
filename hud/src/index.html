@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ws://127.0.0.1:* ws://localhost:*"
+    />
+    <title>JARVIS HUD</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-mode="offline">
+    <div class="scanlines"></div>
+    <div id="notes" class="banner hidden"></div>
+
+    <section id="p-stats" class="panel stats">
+      <h2>SYSTEM</h2>
+      <dl>
+        <dt>CPU</dt><dd data-k="cpu">—</dd>
+        <dt>RAM</dt><dd data-k="ram">—</dd>
+        <dt>GPU</dt><dd data-k="gpu">—</dd>
+        <dt>VRAM</dt><dd data-k="vram">—</dd>
+        <dt>LINK</dt><dd data-k="link">—</dd>
+        <dt>REPLY</dt><dd data-k="latency">—</dd>
+      </dl>
+    </section>
+
+    <section id="p-fight" class="panel fight hidden">
+      <h2>COMBAT <span data-k="state">—</span></h2>
+      <div class="bars">
+        <label>YOU</label><div class="bar hp"><i data-bar="own_hp"></i></div><span data-k="own_hp_txt">—</span>
+        <label>OPP</label><div class="bar opp"><i data-bar="opp_hp"></i></div><span data-k="opp_hp_txt">—</span>
+        <label>STAMINA</label><div class="bar st"><i data-bar="own_stamina"></i></div><span></span>
+        <label>GUARD</label><div class="bar gd"><i data-bar="own_guard"></i></div><span></span>
+        <label>THREAT</label><div class="bar threat"><i data-bar="threat"></i></div><span></span>
+      </div>
+      <div class="cols">
+        <div>
+          <div class="row"><span>TACTIC</span><b data-k="tactic">—</b></div>
+          <div class="row"><span>STOCKS</span><b data-k="stocks">—</b></div>
+          <div class="row"><span>LOOP</span><b data-k="perf">—</b></div>
+        </div>
+        <svg class="radar" viewBox="0 0 120 120" aria-label="opponent profile">
+          <polygon class="grid" points="60,14 103.7,45.8 87,97.2 33,97.2 16.3,45.8" />
+          <polygon class="grid" points="60,37 81.9,52.9 73.5,78.6 46.5,78.6 38.1,52.9" />
+          <polygon class="shape" data-k="radar" points="" />
+          <text x="60" y="9">AGG</text><text x="113" y="47">DEF</text><text x="94" y="111">PUN</text>
+          <text x="26" y="111">RNG</text><text x="7" y="47">REG</text>
+        </svg>
+      </div>
+    </section>
+
+    <section id="p-pip" class="panel pip hidden">
+      <img data-k="pip" alt="what JARVIS sees" />
+      <div class="box opp hidden" data-box="opp"></div>
+      <div class="box me hidden" data-box="me"></div>
+    </section>
+
+    <section id="p-transcript" class="panel transcript">
+      <ol data-k="lines"></ol>
+    </section>
+
+    <section id="p-chat" class="panel chat hidden">
+      <form data-k="form">
+        <input data-k="input" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="Type to JARVIS… (Enter · Esc to leave)" />
+      </form>
+      <div class="buttons">
+        <button data-cmd="stop" class="danger">STOP</button>
+        <button data-cmd="disarm">DISARM</button>
+        <button data-cmd="mute"><span data-k="mute-label">MUTE</span></button>
+        <button data-cmd="interpreter">INTERPRETER</button>
+        <button data-cmd="stream">STREAM MODE</button>
+        <button data-cmd="close" aria-label="leave interactive mode">✕</button>
+      </div>
+    </section>
+
+    <div class="orb-wrap">
+      <canvas id="orb"></canvas>
+      <div class="mode" data-k="mode">OFFLINE</div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

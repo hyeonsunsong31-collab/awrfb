@@ -70,6 +70,7 @@ async def test_hello_carries_sticky_state_then_events_flow(hub):
     ws = await _open(hub)
     hello = await _recv(ws)
     assert hello["type"] == "hello" and hello["snapshot"] == {"voice.state": {"mode": "idle"}}
+    assert hello["history"] == [{"topic": "voice.transcript", "data": {"text": "not sticky"}}]
     await asyncio.sleep(0.05)
     hub.broadcast("voice.reply", {"turn": 1, "delta": "안녕하세요"})
     ev = await _recv(ws)

@@ -1,0 +1,28 @@
+{
+  "name": "jarvis-hud",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JARVIS holographic overlay: transparent, click-through, always on top, never takes focus.",
+  "main": "./out/main/main.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "e2e": "node e2e/smoke.mjs"
+  },
+  "dependencies": {
+    "postprocessing": "6.39.5",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/three": "0.186.0",
+    "electron": "44.7.0",
+    "electron-vite": "5.0.0",
+    "typescript": "6.0.3",
+    "vite": "7.3.7",
+    "vitest": "5.0.3"
+  }
+}
