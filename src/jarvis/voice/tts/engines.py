@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -115,9 +116,11 @@ class EdgeEngine:
 
         voice = self.voices.get(lang, self.voices["en"])
 
+        proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or None
+
         async def fetch() -> bytes:
             buf = bytearray()
-            async for chunk in edge_tts.Communicate(text, voice, rate=self.rate_arg).stream():
+            async for chunk in edge_tts.Communicate(text, voice, rate=self.rate_arg, proxy=proxy).stream():
                 if chunk.get("type") == "audio":
                     buf += chunk["data"]
             return bytes(buf)

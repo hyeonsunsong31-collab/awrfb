@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 from typing import Any, Protocol
 
 from jarvis.brain.types import ChatDelta, Message, ThinkFilter, ToolCall
-from jarvis.common.config import EndpointConfig
+from jarvis.common.config import BrainConfig, EndpointConfig
 
 log = logging.getLogger(__name__)
 
@@ -168,3 +168,16 @@ class OpenAICompatProvider:
             ToolCall(v["id"] or f"call_{i}", v["name"], v["arguments"]) for i, v in sorted(calls.items()) if v["name"]
         ]
         yield ChatDelta("done", tool_calls=tool_calls, finish_reason=finish, endpoint=self.name, model=model)
+
+
+def build_providers(cfg: BrainConfig) -> dict[str, Provider]:
+    """One OpenAI-compatible client per endpoint. A cloud endpoint without an API key is left out (and
+    logged) so the broker goes straight to the local fallback instead of failing every request."""
+    out: dict[str, Provider] = {}
+    for name, ep in cfg.endpoints.items():
+        p = OpenAICompatProvider(name, ep)
+        if not p.has_key:
+            log.warning("LLM endpoint %s has no API key (set %s or run `jarvis api-key`) - skipped", name, ep.api_key_env)
+            continue
+        out[name] = p
+    return out

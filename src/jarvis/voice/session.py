@@ -473,6 +473,8 @@ class VoiceSession:
 
     async def say_phrase(self, key: str, lang: str | None = None) -> None:
         """A standalone pre-rendered phrase (acknowledgements, fight callouts)."""
+        if self.router is None:  # text-only session
+            return
         lang = lang or self.lang
         synth = await asyncio.to_thread(self.router.phrase, key, lang, fighting=self.handler.fight_active())
         if synth is None:

@@ -186,6 +186,17 @@ def run_doctor(cfg: JarvisConfig, *, vram: bool = False) -> DoctorReport:
     except Exception as e:
         rep.add("audio", False, f"{type(e).__name__}: {e}"[:160])
 
+    from jarvis.voice.models import missing as missing_voice_models
+    from jarvis.voice.runtime import VOICEPRINT
+
+    models_dir = cfg.paths().ensure().models
+    gone = missing_voice_models(models_dir)
+    rep.add("voice models", not gone, "wake word + VAD present" if not gone else
+            f"missing {', '.join(m.rel for m in gone)} - run `jarvis voice-models`", "warn" if gone else None)
+    enrolled = (models_dir / VOICEPRINT).exists()
+    rep.add("owner voiceprint", enrolled, "enrolled" if enrolled else
+            "not enrolled - anyone can command JARVIS; run `jarvis enroll`", None if enrolled else "warn")
+
     found = gpus()
     rep.gpu = [asdict(g) for g in found]
     if not found:

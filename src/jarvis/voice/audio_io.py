@@ -28,7 +28,7 @@ PlayerEventSink = Callable[[str, int], None]  # ("start" | "end", segment id)
 
 
 # ------------------------------------------------------------------------------------- framing
-class _Framer:
+class Framer:
     """Accumulates resampled audio and emits fixed-size frames."""
 
     def __init__(self, in_rate: int, out_rate: int, frame: int, sink: FrameSink) -> None:
@@ -56,7 +56,7 @@ class MicStream:
         self.rate = rate
         self.frame = rate * frame_ms // 1000
         self._stream = None
-        self._framer: _Framer | None = None
+        self._framer: Framer | None = None
         self.device_rate: int | None = None
         self.overflows = 0
 
@@ -79,7 +79,7 @@ class MicStream:
             log.info("mic refused %d Hz (%s); capturing at %d Hz and resampling", self.rate, e, self.device_rate)
             stream = sd.InputStream(samplerate=self.device_rate, channels=1, dtype="float32",
                                     blocksize=self.device_rate // 100, device=self.device, latency="low", callback=self._cb)
-        self._framer = _Framer(self.device_rate, self.rate, self.frame, self.on_frame)
+        self._framer = Framer(self.device_rate, self.rate, self.frame, self.on_frame)
         stream.start()
         self._stream = stream
 
@@ -110,7 +110,7 @@ class LoopbackStream:
         self._stream = None
         self._channels = 2
         self._continue = 0
-        self._framer: _Framer | None = None
+        self._framer: Framer | None = None
         self.device_name = ""
 
     @property
@@ -128,7 +128,7 @@ class LoopbackStream:
         sr = int(info["defaultSampleRate"])
         self.device_name = str(info.get("name", ""))
         self._continue = pyaudio.paContinue
-        self._framer = _Framer(sr, self.rate, self.frame, self.on_frame)
+        self._framer = Framer(sr, self.rate, self.frame, self.on_frame)
         self._stream = self._pa.open(format=pyaudio.paFloat32, channels=self._channels, rate=sr, input=True,
                                      input_device_index=int(info["index"]), frames_per_buffer=sr // 100,
                                      stream_callback=self._cb)
@@ -389,3 +389,33 @@ class Player:
     @property
     def level(self) -> float:
         return self.core.level if self.core is not None else 0.0
+
+
+class NullPlayer:
+    """Text-only mode (no audio output): accepts everything, plays nothing."""
+
+    on_event: PlayerEventSink | None = None
+    level = 0.0
+
+    def enqueue(self, seg_id: int, pcm: np.ndarray, rate: int, text: str = "") -> None:
+        if self.on_event is not None:  # report as played so turns finish
+            self.on_event("start", seg_id)
+            self.on_event("end", seg_id)
+
+    def set_gain(self, gain: float) -> None:
+        pass
+
+    def pause(self) -> None:
+        pass
+
+    def resume(self) -> None:
+        pass
+
+    def stop(self) -> PlaybackReport:
+        return PlaybackReport()
+
+    def busy(self) -> bool:
+        return False
+
+    def pending(self) -> int:
+        return 0

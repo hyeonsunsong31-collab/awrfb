@@ -404,6 +404,17 @@ def load_config(
     return JarvisConfig.model_validate(merged)
 
 
+def update_user_config(paths: DataPaths, updates: dict[str, Any]) -> Path:
+    """Merge ``updates`` into the user's ``config.yaml`` (created if missing), written atomically."""
+    p = paths.user_config
+    data = deep_merge(read_yaml(p), updates)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    os.replace(tmp, p)
+    return p
+
+
 def load_yaml_resource(relative: str, cfg_dir: Path | None = None) -> dict[str, Any]:
     """Read a secondary YAML file (keymap, policy, knowledge) from the config directory."""
     return read_yaml((cfg_dir or config_dir()) / relative)
