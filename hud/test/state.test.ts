@@ -55,6 +55,11 @@ describe('reducer', () => {
     expect(s.panels.stats).toBe(false)
   })
 
+  it('agent notices appear in the transcript', () => {
+    const s = reduce(initialState(), ev('hud.notify', { text: 'Download finished' }), 0)
+    expect(s.lines.at(-1)).toMatchObject({ who: 'system', text: 'Download finished' })
+  })
+
   it('ignores unknown topics and malformed data', () => {
     const s0 = initialState()
     expect(applyEvent(s0, 'nope', { x: 1 }, 0)).toBe(s0)

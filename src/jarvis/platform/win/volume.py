@@ -29,3 +29,14 @@ def change_volume(delta: float) -> float:
         return new
     finally:
         comtypes.CoUninitialize()
+
+
+def get_volume() -> float:
+    """Current master volume 0..1."""
+    import comtypes
+
+    comtypes.CoInitialize()
+    try:
+        return float(_endpoint().GetMasterVolumeLevelScalar())
+    finally:
+        comtypes.CoUninitialize()

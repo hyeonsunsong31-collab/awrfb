@@ -131,8 +131,13 @@ class Core:
         self.token = load_or_create_token(self.paths.run)
         host, ports = cfg.ipc.host, cfg.ipc.rpc_ports
         self.pub = Publisher(cfg.ipc.bus_in_port, host)
-        self.tools = RpcToolBackend(RpcClient(ports["toolhost"], self.token, host, timeout=cfg.ipc.request_timeout_s))
+        from jarvis.tools.local import CompositeToolBackend
+
+        extras: dict[str, Any] = {"core": self}
+        self.tools = CompositeToolBackend(extras, RpcToolBackend(RpcClient(ports["toolhost"], self.token, host,
+                                                                           timeout=cfg.ipc.request_timeout_s)))
         self.broker, self.agent, self.memory = build_brain(cfg, self.tools)
+        extras["memory"] = self.memory
         self.fightd = RpcClient(ports["fightd"], self.token, host, timeout=cfg.ipc.request_timeout_s)
         self.kill_switch = KillSwitch(on_broadcast=lambda m: self.pub.publish("kill", m))
         self.kill_switch.on_kill(self._on_kill_local)

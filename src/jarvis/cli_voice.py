@@ -260,6 +260,16 @@ def core(no_voice: bool = typer.Option(False, "--no-voice", help="Text only (no 
     core_main(cfg, voice=not no_voice)
 
 
+def toolhost() -> None:
+    """The toolhost process: runs PC tools for the agent under the safety policy (started by the supervisor)."""
+    from jarvis.common.logging_setup import setup_logging
+    from jarvis.toolhost import main as toolhost_main
+
+    cfg = _cfg()
+    setup_logging("toolhost", cfg.paths().ensure().logs, cfg.log_level)
+    toolhost_main(cfg)
+
+
 def voice_models(
     all_models: bool = typer.Option(False, "--all", help="Also pre-download Whisper, Supertonic and the speaker model."),
 ) -> None:
@@ -307,5 +317,6 @@ def register(app: typer.Typer) -> None:
     app.command()(enroll)
     app.command()(voice)
     app.command()(core)
+    app.command()(toolhost)
     app.command("voice-models")(voice_models)
     app.command("setup-voice")(setup_voice)
