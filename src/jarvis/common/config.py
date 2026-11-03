@@ -101,6 +101,9 @@ class VadConfig(_Model):
     threshold: float = 0.5
     min_speech_ms: int = 250
     min_silence_ms: int = 650
+    # Short utterances ("멈춰", "stop") end after a shorter silence so kill words act fast.
+    short_silence_ms: int = 300
+    short_utterance_ms: int = 900
     max_utterance_s: float = 20.0
     pre_roll_ms: int = 300
 
@@ -131,6 +134,7 @@ class TtsConfig(_Model):
     fallback_chain: list[str] = Field(default_factory=lambda: ["supertonic", "edge"])
     fight_engine: Literal["cache_only", "supertonic", "edge"] = "cache_only"
     speed: float = 1.0
+    supertonic_model: str = "supertonic-3"
     supertonic_voice: str = "M1"
     supertonic_steps: int = 8
     qwen_base_model: str = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
@@ -149,6 +153,8 @@ class BargeInConfig(_Model):
     duck_gain: float = 0.25
     stop_after_ms: int = 300
     require_owner_for_stop: bool = True
+    not_owner_score: float = 0.25  # an early speaker score below this keeps the voice ducked, not paused
+    backchannel_max_ms: int = 900
     backchannel_words: list[str] = Field(
         default_factory=lambda: ["응", "네", "예", "음", "어", "yeah", "yes", "uh-huh", "mm", "ok", "okay", "right"]
     )

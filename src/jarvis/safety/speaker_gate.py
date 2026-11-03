@@ -68,6 +68,19 @@ class SpeakerGate:
         centroid = self._owner.mean(axis=0)
         return max(cosine(emb, centroid), max(cosine(emb, o) for o in self._owner))
 
+    def quick_score(self, audio_16k: np.ndarray, min_audio_s: float = 0.4) -> float | None:
+        """Rough score from a short clip (barge-in decisions only). None when it cannot be computed.
+
+        Never used to authorize anything: owner-only commands always go through ``verify``.
+        """
+        if not self.enabled or not self.enrolled or self._embedder is None or len(audio_16k) < min_audio_s * 16000:
+            return None
+        try:
+            return self.score(self._embedder.embed(audio_16k))
+        except Exception:
+            log.exception("quick speaker score failed")
+            return None
+
     def verify(self, audio_16k: np.ndarray, sample_rate: int = 16000) -> SpeakerResult:
         if not self.enabled:
             return SpeakerResult(True, 1.0, "speaker verification disabled")
@@ -80,6 +93,38 @@ class SpeakerGate:
         emb = self._embedder.embed(audio_16k)
         s = self.score(emb)
         return SpeakerResult(s >= self.threshold, s, "ok" if s >= self.threshold else "not the owner")
+
+    def verify_with_context(
+        self,
+        audio_16k: np.ndarray,
+        context_16k: np.ndarray | None = None,
+        *,
+        short_margin: float = 0.1,
+        min_clip_s: float = 0.4,
+    ) -> SpeakerResult:
+        """Verify a possibly short command ("싸워", "fight").
+
+        Long enough -> plain ``verify``. Shorter clips must pass BOTH: the clip alone scores at least
+        ``threshold - short_margin``, and the clip joined with the preceding utterance of the same
+        interaction (e.g. the "hey Jarvis" before it) passes the full threshold. A TV saying "fight"
+        right after the owner spoke therefore still fails on its own clip.
+        """
+        dur = len(audio_16k) / 16000.0
+        if not self.enabled or not self.enrolled or self._embedder is None or dur >= self.min_audio_s:
+            return self.verify(audio_16k)
+        if dur < min_clip_s:
+            return SpeakerResult(False, 0.0, f"too short to verify ({dur:.2f}s)")
+        own = self.score(self._embedder.embed(audio_16k))
+        if own < self.threshold - short_margin:
+            return SpeakerResult(False, own, "not the owner")
+        if context_16k is not None and len(context_16k):
+            joint = np.concatenate([np.asarray(context_16k, np.float32), np.asarray(audio_16k, np.float32)])
+            if len(joint) / 16000.0 >= self.min_audio_s:
+                js = self.score(self._embedder.embed(joint))
+                ok = js >= self.threshold
+                return SpeakerResult(ok, min(own, js), "ok (with context)" if ok else "not the owner")
+        ok = own >= self.threshold
+        return SpeakerResult(ok, own, "ok (short clip)" if ok else "not the owner")
 
     # ---------------------------------------------------------------- persistence
     @staticmethod

@@ -17,6 +17,8 @@ voice:
     threshold: 0.5
     min_speech_ms: 250
     min_silence_ms: 650
+    short_silence_ms: 300       # utterances shorter than short_utterance_ms end sooner (fast "멈춰/stop")
+    short_utterance_ms: 900
     max_utterance_s: 20
     pre_roll_ms: 300
   stt:
@@ -33,6 +35,7 @@ voice:
     fallback_chain: [supertonic, edge]
     fight_engine: cache_only    # during fights only pre-rendered callouts play (zero GPU cost)
     speed: 1.0
+    supertonic_model: supertonic-3   # 31 languages incl. ko/en, CPU (ONNX)
     supertonic_voice: M1
     supertonic_steps: 8
     qwen_base_model: Qwen/Qwen3-TTS-12Hz-0.6B-Base
@@ -48,6 +51,8 @@ voice:
     duck_gain: 0.25
     stop_after_ms: 300
     require_owner_for_stop: true
+    not_owner_score: 0.25       # clearly someone else (TV, a friend): duck but keep talking
+    backchannel_max_ms: 900
     backchannel_words: ["응", "네", "예", "음", "어", "yeah", "yes", "uh-huh", "mm", "ok", "okay", "right"]
   aec:
     enabled: true

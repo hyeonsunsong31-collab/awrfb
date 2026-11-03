@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import time
 from typing import Any
 
 from jarvis.common.audit import AuditLog
@@ -108,16 +107,18 @@ class FightDaemon:
             return {"ok": False, "error": str(e)}
         return self.rpc_status({})
 
-    def rpc_launch(self, p: dict) -> dict:
+    async def rpc_launch(self, p: dict) -> dict:
         from jarvis.fight.launcher import GameLauncher
 
         self._disconnect("relaunch")
         gl = GameLauncher(self.plat, self.cfg.fight.game, self.paths.run)
         try:
-            gl.launch(private=bool(p.get("private", True)))
+            # Waiting for the Roblox window can take a minute: keep the event loop (and with it the
+            # kill-broadcast listener) responsive meanwhile.
+            await asyncio.to_thread(gl.launch, private=bool(p.get("private", True)))
         except LaunchError as e:
             return {"ok": False, "error": str(e)}
-        time.sleep(2.0)
+        await asyncio.sleep(2.0)
         return self.rpc_attach({})
 
     def rpc_arm(self, p: dict) -> dict:
