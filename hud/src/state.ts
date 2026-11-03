@@ -131,6 +131,8 @@ export function applyEvent(s: HudState, topic: string, data: unknown, now: numbe
       return { ...s, lastCallout: 'panic', lines: pushLine(s.lines, { who: 'system', text: s.lang === 'ko' ? '긴급 정지' : 'Emergency stop', done: true }) }
     case 'system.stats':
       return { ...s, stats: data as Stats }
+    case 'fight.coach':
+      return str(d.comment) ? { ...s, lines: pushLine(s.lines, { who: 'system', text: `${s.lang === 'ko' ? '코치' : 'Coach'}: ${str(d.comment)}`, done: true }) } : s
     case 'hud.notify':
       return str(d.text) ? { ...s, lines: pushLine(s.lines, { who: 'system', text: str(d.text), done: true }) } : s
     case 'hud.command': {

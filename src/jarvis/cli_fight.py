@@ -164,6 +164,9 @@ def _run_key_verification(actions: list[str] | None, repeats: int, kind: str) ->
     if layout is not None:
         Fingerprint.make(layout, km).save(paths.calibration)
     summary = {"actions": [r.to_dict() for r in reports]}
+    lats = sorted(r.median_latency_ms for r in reports if r.median_latency_ms is not None)
+    if lats:  # input -> visible reaction; the threat-model promotion gate needs warnings longer than this
+        (paths.calibration / "latency.json").write_text(json.dumps({"median_ms": lats[len(lats) // 2], "t": time.time()}), encoding="utf-8")
     d = rec.close(summary)
     for r in reports:
         color = "green" if r.verified else "red"

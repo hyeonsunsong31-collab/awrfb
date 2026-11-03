@@ -148,7 +148,9 @@ class FightLoop:
         paths = cfg.paths().ensure()
         self.paths = paths
         self.layout = layout or load_layout(paths.calibration)
+        self._params_explicit = params is not None
         self.params = params or load_params(cfg.fight.policy_file, paths.calibration)
+        self._coach_priors: dict[str, float] = {}
         self._detector = detector
         self._threat_model = threat_model
         self.on_telemetry = on_telemetry or (lambda d: None)
@@ -217,6 +219,11 @@ class FightLoop:
         if problems:
             self.last_refusal = "; ".join(problems)
             raise ArmRefused(self.last_refusal)
+        if not self._params_explicit:  # pick up the coach's latest (bounded) adjustments
+            from jarvis.fight.policy.coach import load_coach_priors
+
+            self.params = load_params(self.cfg.fight.policy_file, self.paths.calibration)
+            self._coach_priors = load_coach_priors(self.paths.calibration)
         self._build_perception()
         self.matches_left = max(1, int(matches))
         self.auto_queue = auto_queue
@@ -251,7 +258,7 @@ class FightLoop:
             self.match = MatchStats(started_ns=time.perf_counter_ns())
             self.policy = ReflexPolicy(self.params, self.io.keymap, bandit=self._bandit, opponent=self._opponent,
                                        seed=self.seed, camera_relative=self.io.keymap.camera.mouse_relative,
-                                       fixed_tactic=self.fixed_tactic)
+                                       fixed_tactic=self.fixed_tactic, coach_priors=self._coach_priors)
             self.policy.reset(time.perf_counter_ns())
             gc.collect()
             gc.freeze()

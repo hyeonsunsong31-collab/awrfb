@@ -55,6 +55,11 @@ describe('reducer', () => {
     expect(s.panels.stats).toBe(false)
   })
 
+  it('coach comments appear after a match', () => {
+    const s = reduce(initialState(), ev('fight.coach', { comment: 'Block earlier against heavies.' }), 0)
+    expect(s.lines.at(-1)?.text).toBe('Coach: Block earlier against heavies.')
+  })
+
   it('agent notices appear in the transcript', () => {
     const s = reduce(initialState(), ev('hud.notify', { text: 'Download finished' }), 0)
     expect(s.lines.at(-1)).toMatchObject({ who: 'system', text: 'Download finished' })

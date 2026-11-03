@@ -484,6 +484,21 @@ class VoiceSession:
         self._seg_sink[seg] = None
         self.player.enqueue(seg, synth.audio.pcm, synth.audio.rate, key)
 
+    async def announce(self, text: str, lang: str | None = None) -> bool:
+        """Speak one standalone sentence (coach comments). Skipped while the owner talks or a reply plays;
+        during a fight with cache-only TTS it stays on the HUD. Returns whether it was queued."""
+        if self.router is None or not text.strip() or self.barge.replying or self._onset_wall is not None:
+            return False
+        lang = lang or detect_lang(text)
+        synth = await asyncio.to_thread(self.router.synth, clean_for_speech(text, lang), lang, fighting=self.handler.fight_active())
+        if synth is None:
+            return False
+        seg = next(self._seg_ids)
+        self._seg_text[seg] = text
+        self._seg_sink[seg] = None
+        self.player.enqueue(seg, synth.audio.pcm, synth.audio.rate, text)
+        return True
+
     async def callout(self, key: str, data: dict | None = None) -> None:
         """Speak a fightd callout (skipped while the owner talks or a reply plays, unless critical)."""
         phrase = callout_for_event(key, data or {})

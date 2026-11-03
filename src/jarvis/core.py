@@ -412,6 +412,7 @@ class Core:
             key = str(msg.get("key", ""))
             if key == "match_end":
                 self.last_match = msg
+                self._spawn(self._run_coach(msg))
             if self.session is not None and key != "armed":  # "armed" is confirmed by the fight intent itself
                 await self.session.callout(key, msg)
         elif topic == "fight.panic":
@@ -419,6 +420,25 @@ class Core:
                 await self.session.callout("panic", msg)
         elif topic == "kill" and self.session is not None:
             self.session.stop_all()  # someone else pulled the kill switch; never re-broadcast
+
+    async def _run_coach(self, summary: dict) -> None:
+        """Between matches: bounded tactic/parameter nudges for the next arm, plus a spoken comment."""
+        from jarvis.fight.policy.coach import coach_match
+        from jarvis.fight.policy.params import load_params
+
+        lang = self.session.lang if self.session is not None else "en"
+        kb = self.paths.root / "kb" / "ubg.md"
+        knowledge = kb.read_text(encoding="utf-8") if kb.exists() else ""
+        try:
+            base = load_params(self.cfg.fight.policy_file, self.paths.calibration)
+            adv, applied = await coach_match(self.broker, summary, lang, self.paths.calibration, base, knowledge)
+        except Exception as e:  # no model available etc.: the fighter simply keeps its settings
+            log.info("coach skipped: %s", e)
+            return
+        self.publish("fight.coach", {"comment": adv.comment, "params": applied["params"], "priors": adv.tactic_priors,
+                                     "rejected": adv.rejected})
+        if adv.comment and self.session is not None:
+            await self.session.announce(adv.comment, lang)
 
     # ------------------------------------------------------------------ main
     async def run(self) -> None:

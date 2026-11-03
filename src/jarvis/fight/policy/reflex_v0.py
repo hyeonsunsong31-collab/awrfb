@@ -62,8 +62,10 @@ class ReflexPolicy:
         seed: int | None = None,
         camera_relative: bool = False,
         fixed_tactic: str | None = None,
+        coach_priors: dict[str, float] | None = None,
     ) -> None:
         self.base = base
+        self.coach_priors = dict(coach_priors or {})
         self.km = keymap
         self.rng = random.Random(seed)
         self.bandit = bandit or DiscountedThompson(list(TACTICS), discount=base.tactics.discount, seed=seed)
@@ -92,7 +94,10 @@ class ReflexPolicy:
 
     def reset(self, t_ns: int) -> None:
         self.ctx = FightCtx(tactic=self.ctx.tactic, tactic_since=t_ns)
-        self.bandit.set_priors(self.opponent.tactic_priors(), weight=1.0)
+        priors = self.opponent.tactic_priors()
+        for k, v in self.coach_priors.items():
+            priors[k] = priors.get(k, 0.0) + v
+        self.bandit.set_priors(priors, weight=1.0)
 
     def _tap(self, cmds: list[Command], action: str, t: int, reason: str, dur_ms: float | None = None) -> None:
         if not self.usable(action):
