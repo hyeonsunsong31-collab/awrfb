@@ -65,6 +65,19 @@ describe('reducer', () => {
     expect(s.lines.at(-1)).toMatchObject({ who: 'system', text: 'Download finished' })
   })
 
+  it('shows background learning: running job, promotions and drift warnings', () => {
+    let s = reduce(initialState(), ev('learn.status', { running: 'nightly' }), 0)
+    expect(s.learning).toBe('nightly')
+    s = reduce(s, ev('learn.status', { running: null }), 0)
+    expect(s.learning).toBeNull()
+    s = reduce(s, ev('learn.result', { job: 'nightly', ok: true, promoted: false, ap_300: 0.6 }), 0)
+    expect(s.lines).toHaveLength(0)
+    s = reduce(s, ev('learn.result', { job: 'nightly', ok: true, promoted: true, ap_300: 0.812 }), 0)
+    expect(s.lines.at(-1)?.text).toBe('New threat model promoted (AP@300 0.81)')
+    s = reduce(s, ev('learn.drift', { reason: 'HUD confidence fell' }), 0)
+    expect(s.lines.at(-1)).toMatchObject({ who: 'system', text: 'HUD needs recalibration — HUD confidence fell' })
+  })
+
   it('ignores unknown topics and malformed data', () => {
     const s0 = initialState()
     expect(applyEvent(s0, 'nope', { x: 1 }, 0)).toBe(s0)

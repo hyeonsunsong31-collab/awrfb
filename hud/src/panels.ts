@@ -86,6 +86,7 @@ export class Panels {
     this.set('vram', st.vram)
     this.set('link', s.authFailed ? (ko ? '인증 실패' : 'AUTH FAILED') : s.connected ? (ko ? '연결됨' : 'ONLINE') : ko ? '연결 끊김' : 'OFFLINE')
     this.set('latency', s.latencyS == null ? '—' : `${s.latencyS.toFixed(2)} s`)
+    this.set('learning', s.learning ?? (ko ? '대기' : 'idle'))
 
     const t = s.telemetry
     this.set('state', fightStateLabel(s.fightState, s.lang))

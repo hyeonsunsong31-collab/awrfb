@@ -143,6 +143,7 @@ class Core:
         self.kill_switch.on_kill(self._on_kill_local)
         self.fight_state = "detached"
         self.last_match: dict[str, Any] | None = None
+        self._drift_said = ""
         self.want_voice = voice and cfg.voice.enabled
         self.runtime = None
         self.session: VoiceSession | None = None
@@ -215,12 +216,18 @@ class Core:
 
     # ------------------------------------------------------------------ intents
     async def _agent_turn(self, utt: Utterance, reply: ReplySink) -> None:
+        from jarvis.learn.skills import record_skill, skill_hints
+
         caps = await scope_request(utt.text, self.broker)
         origin = "owner_text" if utt.addressed_by == "typed" else "owner_voice"
-        res = await self.agent.run(AgentTurn(text=utt.text, origin=origin, lang=utt.lang, caps=caps),
+        skills = self.paths.db / "skills.jsonl"
+        hints = await asyncio.to_thread(skill_hints, skills, utt.text)
+        res = await self.agent.run(AgentTurn(text=utt.text, origin=origin, lang=utt.lang, caps=caps, hints=hints),
                                    on_text=reply.write, cancel=reply.cancel)
         if res.error:
             log.info("agent turn ended with error: %s", res.error)
+        elif not res.cancelled:
+            record_skill(skills, utt.text, res.tools, utt.lang or "")
         self._spawn(self.agent.maybe_summarize())
 
     async def _intent_fight(self, utt: Utterance, reply: ReplySink) -> None:
@@ -392,7 +399,7 @@ class Core:
 
     # ------------------------------------------------------------------ bus
     async def _bus_listener(self) -> None:
-        sub = AsyncSubscriber(self.cfg.ipc.bus_out_port, ["fight.", "kill"], self.cfg.ipc.host)
+        sub = AsyncSubscriber(self.cfg.ipc.bus_out_port, ["fight.", "learn.", "kill"], self.cfg.ipc.host)
         try:
             while True:
                 topic, msg = await sub.recv()
@@ -404,8 +411,11 @@ class Core:
             sub.close()
 
     async def _on_bus(self, topic: str, msg: dict) -> None:
-        if self.hub is not None and topic.startswith("fight."):
+        if self.hub is not None and topic.startswith(("fight.", "learn.")):
             self.hub.broadcast(topic, msg)
+        if topic == "learn.drift":
+            await self._announce_drift(str(msg.get("reason", "")))
+            return
         if topic == "fight.state":
             self.fight_state = str(msg.get("new", self.fight_state))
         elif topic == "fight.callout":
@@ -420,6 +430,18 @@ class Core:
                 await self.session.callout("panic", msg)
         elif topic == "kill" and self.session is not None:
             self.session.stop_all()  # someone else pulled the kill switch; never re-broadcast
+
+    async def _announce_drift(self, reason: str) -> None:
+        """Said once per distinct reason: the fighter will refuse until the HUD is recalibrated."""
+        if not reason or reason == self._drift_said or self.session is None:
+            return
+        self._drift_said = reason
+        lang = self.session.lang
+        text = ("게임 화면이 바뀐 것 같습니다. 체력바 인식 신뢰도가 떨어져서, HUD를 다시 보정하기 전까지는 싸우지 않겠습니다."
+                if lang == "ko" else
+                "The game's screen seems to have changed: my HUD reading confidence dropped, so I won't fight until "
+                "the HUD is recalibrated.")
+        await self.session.announce(text, lang)
 
     async def _run_coach(self, summary: dict) -> None:
         """Between matches: bounded tactic/parameter nudges for the next arm, plus a spoken comment."""

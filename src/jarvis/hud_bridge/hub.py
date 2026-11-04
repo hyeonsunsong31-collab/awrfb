@@ -27,7 +27,8 @@ log = logging.getLogger(__name__)
 
 COMMANDS = frozenset({"chat", "mute", "unmute", "stop", "disarm", "interpreter"})
 # Latest value of these is replayed to every new client.
-STICKY = frozenset({"voice.state", "voice.notes", "fight.state", "fight.telemetry", "system.stats", "hud.command"})
+STICKY = frozenset({"voice.state", "voice.notes", "fight.state", "fight.telemetry", "system.stats", "hud.command",
+                    "learn.status"})
 # The recent conversation is replayed too, so a restarted HUD shows the last exchanges.
 HISTORY = frozenset({"voice.transcript", "voice.reply_done", "voice.rejected"})
 HISTORY_LEN = 24

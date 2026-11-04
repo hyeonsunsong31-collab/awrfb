@@ -51,6 +51,7 @@ class AgentTurn:
     lang: str | None = None
     task_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     caps: set[Cap] = field(default_factory=set)
+    hints: str = ""  # e.g. similar past tool sequences that worked (skills library); examples, not orders
 
 
 @dataclass
@@ -96,6 +97,8 @@ class Agent:
             block = memory_block(self.memory.recall(turn.text, k=4))
             if block:
                 extra = block
+        if turn.hints:
+            extra = f"{extra}\n{turn.hints}".strip()
         msgs.append({"role": "system", "content": turn_context(extra)})
         return msgs
 

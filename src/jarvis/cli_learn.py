@@ -13,6 +13,7 @@ console = Console()
 dataset_app = typer.Typer(help="Training datasets from your recordings.", no_args_is_help=True)
 models_app = typer.Typer(help="Model registry (candidate -> active, rollback).", no_args_is_help=True)
 train_app = typer.Typer(help="Train fight models from your recordings.", no_args_is_help=True)
+learn_app = typer.Typer(help="Background self-education (learnerd): status, run a job now, cancel.", no_args_is_help=True)
 
 
 def _cfg():
@@ -212,8 +213,87 @@ def coach(session: str = typer.Argument("", help="Fight session dir (default: th
                   + (f"\nignored: {adv.rejected}" if adv.rejected else ""))
 
 
+def _learnerd_call(method: str, params: dict | None = None) -> dict | None:
+    import asyncio
+
+    from jarvis.common.ipc import RpcClient, RpcError, load_or_create_token
+
+    cfg = _cfg()
+    paths = cfg.paths().ensure()
+
+    async def go() -> dict | None:
+        client = RpcClient(cfg.ipc.rpc_ports["learnerd"], load_or_create_token(paths.run), cfg.ipc.host, timeout=3.0)
+        try:
+            return dict(await client.call(method, params or {}) or {})
+        except RpcError:
+            return None
+        finally:
+            await client.close()
+
+    return asyncio.run(go())
+
+
+@learn_app.command("status")
+def learn_status() -> None:
+    """What the background learner is doing and when each job last ran."""
+    r = _learnerd_call("status")
+    if r is None:
+        console.print("learnerd is not running (the supervisor starts it; or run `jarvis learnerd`)")
+        raise typer.Exit(1)
+    st = r.get("state", {})
+    fmt = lambda t: time.strftime("%Y-%m-%d %H:%M", time.localtime(t)) if t else "never"  # noqa: E731
+    console.print(f"running: {r.get('running') or 'nothing'}   fight active: {r.get('fight_active')}   enabled: {r.get('enabled')}")
+    console.print(f"nightly retrain: {fmt(st.get('last_nightly'))}   knowledge refresh: {fmt(st.get('last_kb'))}   "
+                  f"memory consolidation: {fmt(st.get('last_consolidate'))}")
+    console.print(f"videos today: {st.get('videos_today', 0)}   queued: {st.get('requested') or '-'}")
+    if r.get("last_result"):
+        console.print(f"last result: {json.dumps(r['last_result'], ensure_ascii=False, default=str)[:400]}")
+
+
+@learn_app.command("now")
+def learn_now(
+    job: str = typer.Argument(..., help="post_fight | nightly | video | kb | consolidate"),
+    here: bool = typer.Option(False, "--here", help="Run in this terminal instead of queueing it in learnerd."),
+) -> None:
+    """Run a learning job now (queued in learnerd; it still never runs during a fight)."""
+    from jarvis.learn.jobs import JOBS
+
+    if job not in JOBS:
+        console.print(f"[red]unknown job[/] {job!r}; one of: {', '.join(JOBS)}")
+        raise typer.Exit(2)
+    if here:
+        from jarvis.learn.jobs import run_job
+
+        console.print(json.dumps(run_job(_cfg(), job), ensure_ascii=False, indent=1, default=str))
+        return
+    r = _learnerd_call("request", {"job": job})
+    if r is None:
+        console.print("learnerd is not running - use --here to run the job in this terminal")
+        raise typer.Exit(1)
+    console.print(f"queued: {r.get('queued')}" if r.get("ok") else f"[red]{r.get('error')}[/]")
+
+
+@learn_app.command("cancel")
+def learn_cancel() -> None:
+    """Stop the running learning job."""
+    r = _learnerd_call("cancel")
+    console.print("learnerd is not running" if r is None else f"stopped: {r.get('stopped') or 'nothing was running'}")
+
+
+def learnerd() -> None:
+    """The background-learner process (started by the supervisor)."""
+    from jarvis.common.logging_setup import setup_logging
+    from jarvis.learnerd import main as learnerd_main
+
+    cfg = _cfg()
+    setup_logging("learnerd", cfg.paths().ensure().logs, cfg.log_level)
+    learnerd_main(cfg)
+
+
 def register(app: typer.Typer) -> None:
     app.command()(labels)
+    app.add_typer(learn_app, name="learn")
+    app.command()(learnerd)
     app.add_typer(dataset_app, name="dataset")
     app.add_typer(models_app, name="models")
     app.add_typer(train_app, name="train")

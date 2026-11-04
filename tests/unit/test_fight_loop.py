@@ -81,6 +81,23 @@ def test_arm_refused_outside_private_server(rig):
     assert io.sm.state == FightState.DISARMED
 
 
+def test_arm_refused_until_hud_recalibrated_after_drift(rig):
+    import os
+
+    from jarvis.learn.drift import write_drift
+
+    cfg, io, loop, _game = rig
+    io.session = GameSession(io.session.pid, io.session.hwnd, "private", True, time.time())
+    paths = cfg.paths()
+    write_drift(paths.run, True, "HUD confidence fell from 0.91 to 0.32 - did UBG update its interface?")
+    with pytest.raises(ArmRefused, match="Recalibrate"):
+        loop.arm()
+    assert io.sm.state == FightState.DISARMED
+    later = time.time() + 5  # `jarvis calibrate hud` writes a newer layout
+    os.utime(paths.calibration / "hud_layout.yaml", (later, later))
+    assert not any("Recalibrate" in p for p in loop.preflight())
+
+
 def test_full_match_flow(rig):
     cfg, io, loop, game = rig
     io.session = GameSession(io.session.pid, io.session.hwnd, "private", True, time.time())

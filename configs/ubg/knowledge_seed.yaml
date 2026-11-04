@@ -1,0 +1,35 @@
+# Starting notes about untitled boxing game for the between-match coach. Every entry is UNVERIFIED:
+# it comes from community guides and early research, not from measurements on your PC. The background
+# learner adds web findings (also unverified, with sources); measured numbers from your own fights
+# (latency, damage, ranges) always take precedence.
+facts:
+  - topic: controls
+    fact: "Left mouse (M1) throws fast light punches; right mouse (M2) throws a slower, stronger heavy punch."
+    source: initial research (community guides)
+  - topic: controls
+    fact: "Pressing M1 during a heavy's wind-up (M2 then M1) cancels it into a feint, baiting blocks and dodges."
+    source: initial research (community guides)
+  - topic: defense
+    fact: "Holding F blocks; blocked hits drain a guard gauge, and an empty guard breaks and leaves the fighter open."
+    source: initial research (community guides)
+  - topic: movement
+    fact: "Space dashes in the movement direction; dashes have a cooldown and get shorter when spammed."
+    source: initial research (community guides)
+  - topic: defense
+    fact: "Perfectly timed dodges avoid a hit, but for roughly one second after a dash a perfect dodge is not possible."
+    source: initial research (community guide, timing unmeasured)
+  - topic: stamina
+    fact: "Attacks and dashes use stamina; running out causes a stamina break of about two seconds in which the fighter is helpless."
+    source: initial research (community guides)
+  - topic: rules
+    fact: "Matches start when both fighters stand in a ring's blue boxes (they turn green); a match is won by taking the opponent's stocks (HP bars)."
+    source: initial research (game observation)
+  - topic: rules
+    fact: "Fighting styles and cosmetics are obtained with spins and purchases; JARVIS never spins or buys anything."
+    source: project rule
+  - topic: rules
+    fact: "The game's rules name auto-dodging as bannable, and Roblox prohibits automation that gives an unfair advantage; fight only where everyone has agreed (private servers)."
+    source: game rules / Roblox terms
+  - topic: tactics
+    fact: "Light punches are too fast to react to on sight; they are handled with spacing, blocking at close range and stamina discipline. Reactions are realistic only against heavies."
+    source: design assumption (to be checked against measured warning times)

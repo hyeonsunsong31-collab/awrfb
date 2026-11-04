@@ -210,6 +210,11 @@ class FightLoop:
         for a in ("light", "block"):
             if not self.io.keymap.usable(a):
                 problems.append(f"keymap action {a!r} is disabled")
+        from jarvis.learn.drift import drift_problem
+
+        drift = drift_problem(self.paths.run, self.paths.calibration)  # the game's HUD changed since calibration
+        if drift:
+            problems.append(drift)
         return problems
 
     def arm(self, matches: int = 1, auto_queue: bool = False) -> None:

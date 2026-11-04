@@ -143,14 +143,19 @@ class SessionRecorder:
             return None
 
     # ------------------------------------------------------------------ producer API (thread-safe)
-    def add_frame(self, image: np.ndarray, row: dict[str, Any]) -> int | None:
-        """Queue a frame + its frames.jsonl row. Returns the video index or None if dropped."""
+    def add_frame(self, image: np.ndarray, row: dict[str, Any], *, block: bool = False) -> int | None:
+        """Queue a frame + its frames.jsonl row. Returns the video index or None if dropped.
+        ``block=True`` (offline ingestion) waits for the writer instead of dropping."""
         if self._closed:
             return None
         with self._lock:
             vi = self._video_index
             try:
-                self._q.put_nowait(("frame", image, {**row, "v": 1, "vi": vi}))
+                item = ("frame", image, {**row, "v": 1, "vi": vi})
+                if block:
+                    self._q.put(item)
+                else:
+                    self._q.put_nowait(item)
             except queue.Full:
                 self.stats.frames_dropped += 1
                 return None

@@ -152,6 +152,11 @@ class FightDaemon:
             if not att.get("connected"):
                 return {"ok": False, "error": att.get("error", "not connected to Roblox")}
         assert self.loop is not None and self.io is not None
+        problems = self.loop.preflight()
+        if problems:
+            self.loop.last_refusal = "; ".join(problems)
+            return {"ok": False, "error": self.loop.last_refusal}
+        self.emit("gpu.claim", {"by": "fightd"})  # learnerd ends any training job now: fights always win
         self.io.focus_game()
         try:
             self.loop.arm(int(p.get("matches", 1)), bool(p.get("auto_queue", False)))

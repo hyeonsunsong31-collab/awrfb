@@ -35,6 +35,7 @@ export interface HudState {
   notes: string[]
   latencyS: number | null
   lastCallout: string | null
+  learning: string | null
   panels: Record<PanelId, boolean>
 }
 
@@ -58,6 +59,7 @@ export function initialState(): HudState {
     notes: [],
     latencyS: null,
     lastCallout: null,
+    learning: null,
     panels: { stats: true, fight: true, transcript: true, chat: true, pip: true },
   }
 }
@@ -133,6 +135,22 @@ export function applyEvent(s: HudState, topic: string, data: unknown, now: numbe
       return { ...s, stats: data as Stats }
     case 'fight.coach':
       return str(d.comment) ? { ...s, lines: pushLine(s.lines, { who: 'system', text: `${s.lang === 'ko' ? '코치' : 'Coach'}: ${str(d.comment)}`, done: true }) } : s
+    case 'learn.status':
+      return { ...s, learning: str(d.running) || null }
+    case 'learn.result': {
+      const next = { ...s, learning: null }
+      if (d.job === 'nightly' && d.promoted === true) {
+        const ap = typeof d.ap_300 === 'number' ? ` (AP@300 ${d.ap_300.toFixed(2)})` : ''
+        const text = s.lang === 'ko' ? `새 위협 예측 모델 적용됨${ap}` : `New threat model promoted${ap}`
+        return { ...next, lines: pushLine(s.lines, { who: 'system', text, done: true }) }
+      }
+      return next
+    }
+    case 'learn.drift': {
+      const why = str(d.reason)
+      const text = s.lang === 'ko' ? `HUD 재보정 필요 — ${why}` : `HUD needs recalibration — ${why}`
+      return { ...s, lines: pushLine(s.lines, { who: 'system', text, done: true }) }
+    }
     case 'hud.notify':
       return str(d.text) ? { ...s, lines: pushLine(s.lines, { who: 'system', text: str(d.text), done: true }) } : s
     case 'hud.command': {
