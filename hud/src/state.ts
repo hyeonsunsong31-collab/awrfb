@@ -151,6 +151,7 @@ export function applyEvent(s: HudState, topic: string, data: unknown, now: numbe
       const text = s.lang === 'ko' ? `HUD 재보정 필요 — ${why}` : `HUD needs recalibration — ${why}`
       return { ...s, lines: pushLine(s.lines, { who: 'system', text, done: true }) }
     }
+    case 'sys.notice':
     case 'hud.notify':
       return str(d.text) ? { ...s, lines: pushLine(s.lines, { who: 'system', text: str(d.text), done: true }) } : s
     case 'hud.command': {

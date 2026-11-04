@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
 import sys
 import time
 from types import SimpleNamespace
@@ -284,6 +285,7 @@ class TwoFighters:
         return [Detection(0.45, 0.40, 0.10, 0.40, 0.9), Detection(0.66, 0.30, 0.08, 0.35, 0.9)]
 
 
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ingested clips are stored with ffmpeg")
 def test_video_ingest_accepts_ubg_and_rejects_other_clips(cfg, tmp_path):
     from jarvis.fight.recorder import read_jsonl
     from jarvis.learn.datasets import VideoFrames, build_samples

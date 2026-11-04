@@ -60,9 +60,11 @@ describe('reducer', () => {
     expect(s.lines.at(-1)?.text).toBe('Coach: Block earlier against heavies.')
   })
 
-  it('agent notices appear in the transcript', () => {
+  it('agent and supervisor notices appear in the transcript', () => {
     const s = reduce(initialState(), ev('hud.notify', { text: 'Download finished' }), 0)
     expect(s.lines.at(-1)).toMatchObject({ who: 'system', text: 'Download finished' })
+    const t = reduce(s, ev('sys.notice', { text: 'toolhost keeps crashing' }), 0)
+    expect(t.lines.at(-1)).toMatchObject({ who: 'system', text: 'toolhost keeps crashing' })
   })
 
   it('shows background learning: running job, promotions and drift warnings', () => {

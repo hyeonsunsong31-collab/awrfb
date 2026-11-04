@@ -8,6 +8,7 @@ reaches Roblox passes through the same actuator and gate.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import time
 from collections.abc import Callable
@@ -115,7 +116,10 @@ class GameIO:
         mon.start()
         self._monitor = mon
         hk = self.plat.new_hotkeys()
-        for combo in self.cfg.safety.panic_hotkeys:
+        combos = list(self.cfg.safety.panic_hotkeys)
+        if os.environ.get("JARVIS_SUPERVISED") == "1":
+            combos = combos[:1]  # the supervisor owns the others: two independent panic paths, no double registration
+        for combo in combos:
             hk.register(combo, lambda c=combo: self.panic(f"panic hotkey {c}"))
         hk.start()
         self._hotkeys = hk

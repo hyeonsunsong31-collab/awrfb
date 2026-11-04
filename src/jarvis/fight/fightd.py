@@ -204,4 +204,7 @@ class FightDaemon:
 
 
 def main(cfg: JarvisConfig) -> None:
+    from jarvis.common.cuda_dlls import setup_cuda_dlls
+
+    setup_cuda_dlls()
     asyncio.run(FightDaemon(cfg).run())

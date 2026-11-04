@@ -30,7 +30,9 @@ async function loadPlaywright() {
 }
 
 function startHub(port, token) {
-  const py = process.env.JARVIS_PYTHON || 'python'
+  const env = process.env.JARVIS_PYTHON
+  // A path (../.venv/bin/python) is relative to hud/; a bare command (python3) is looked up on PATH.
+  const py = env ? (/[\\/]/.test(env) ? resolve(root, env) : env) : 'python'
   const p = spawn(py, ['-m', 'jarvis.hud_bridge.demo', '--port', String(port), '--token', token, '--forever'], {
     cwd: resolve(root, '..'),
     stdio: ['ignore', 'pipe', 'inherit'],

@@ -225,6 +225,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", type=Path, default=None)
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from jarvis.common.cuda_dlls import setup_cuda_dlls
+
+    setup_cuda_dlls()
     try:
         res = {"job": a.job, "ok": True, **run_job(load_config(), a.job, a.budget)}
     except Exception as e:

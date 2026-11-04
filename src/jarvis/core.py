@@ -149,7 +149,7 @@ class Core:
         self.session: VoiceSession | None = None
         self.voice_notes: list[str] = []
         self.server = RpcServer("core", ports["core"], self.token, host)
-        for name in ("status", "chat", "mute", "unmute", "stop"):
+        for name in ("status", "chat", "mute", "unmute", "toggle_mute", "stop"):
             self.server.add(name, getattr(self, f"rpc_{name}"))
         self.hub = None
         if cfg.hud.enabled:
@@ -393,13 +393,24 @@ class Core:
             self.session.unmute()
         return {"ok": True}
 
+    def rpc_toggle_mute(self, _p: dict) -> dict:
+        """The mute hotkey (registered by the supervisor): a physical key press is the owner at the PC."""
+        s = self.session
+        if s is None:
+            return {"ok": False, "muted": None}
+        if s.muted:
+            s.unmute()
+        else:
+            s.mute()
+        return {"ok": True, "muted": s.muted}
+
     def rpc_stop(self, p: dict) -> dict:
         self.kill_switch.trigger(str(p.get("reason", "stop requested")))
         return {"ok": True}
 
     # ------------------------------------------------------------------ bus
     async def _bus_listener(self) -> None:
-        sub = AsyncSubscriber(self.cfg.ipc.bus_out_port, ["fight.", "learn.", "kill"], self.cfg.ipc.host)
+        sub = AsyncSubscriber(self.cfg.ipc.bus_out_port, ["fight.", "learn.", "sys.", "kill"], self.cfg.ipc.host)
         try:
             while True:
                 topic, msg = await sub.recv()
@@ -411,7 +422,7 @@ class Core:
             sub.close()
 
     async def _on_bus(self, topic: str, msg: dict) -> None:
-        if self.hub is not None and topic.startswith(("fight.", "learn.")):
+        if self.hub is not None and topic.startswith(("fight.", "learn.", "sys.")):
             self.hub.broadcast(topic, msg)
         if topic == "learn.drift":
             await self._announce_drift(str(msg.get("reason", "")))
@@ -509,6 +520,9 @@ class Core:
 
 
 def main(cfg: JarvisConfig, *, voice: bool = True, standalone_bus: bool = False) -> None:
+    from jarvis.common.cuda_dlls import setup_cuda_dlls
+
+    setup_cuda_dlls()
     proxy = None
     if standalone_bus and bus_port_free(cfg.ipc.host, cfg.ipc.bus_in_port):
         proxy = BusProxy(cfg.ipc.bus_in_port, cfg.ipc.bus_out_port, cfg.ipc.host)

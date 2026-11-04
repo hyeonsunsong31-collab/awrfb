@@ -69,13 +69,17 @@ def hud(
     conf = write_hud_config(cfg, port=port, token_file=token_file)
     env = {**os.environ, "JARVIS_HUD_CONFIG": str(conf)}
     npm = "npm.cmd" if sys.platform == "win32" else "npm"
+    # Started by the supervisor (no console): never let npm's cmd.exe pop up a console window.
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" and os.environ.get("JARVIS_SUPERVISED") == "1" else 0
     try:
         if dev:
-            subprocess.run([npm, "run", "dev"], cwd=d, env=env, check=False)
+            subprocess.run([npm, "run", "dev"], cwd=d, env=env, check=False, creationflags=flags)
         else:
             if not (d / "out" / "main" / "main.js").exists():
-                subprocess.run([npm, "run", "build"], cwd=d, env=env, check=True)
-            subprocess.run([npm, "run", "start"], cwd=d, env=env, check=False)
+                subprocess.run([npm, "run", "build"], cwd=d, env=env, check=True, creationflags=flags)
+            code = subprocess.run([npm, "run", "start"], cwd=d, env=env, check=False, creationflags=flags).returncode
+            if code:
+                raise typer.Exit(code)
     finally:
         for p in helpers:
             p.terminate()

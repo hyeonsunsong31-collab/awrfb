@@ -103,6 +103,9 @@ def _register_subcommands() -> None:
 
 
 def main() -> None:
+    from jarvis.common.cuda_dlls import setup_cuda_dlls
+
+    setup_cuda_dlls(preload_onnxruntime=False)  # Windows: make the venv's CUDA/cuDNN DLLs findable
     _register_subcommands()
     try:
         app()
