@@ -37,7 +37,6 @@ jobs:
 
   hud:
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('hud/package.json') != '' }}
     defaults:
       run:
         working-directory: hud

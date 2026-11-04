@@ -202,6 +202,7 @@ def test_supervisor_lifecycle_over_real_bus_and_rpc(data_dir):
 
 # ------------------------------------------------------------------------------------- tray + CLI
 def test_tray_icon_and_menu(monkeypatch):
+    pytest.importorskip("PIL")  # Pillow comes with the Windows extra (tray icon)
     from jarvis import tray as tray_mod
 
     img = tray_mod.icon_image("fighting", 64)
