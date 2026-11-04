@@ -5,8 +5,8 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from tests.fakes.llm import ScriptedProvider, text
 
+from fakes.llm import ScriptedProvider, text
 from jarvis.brain.agent import Agent
 from jarvis.brain.broker import LLMBroker
 from jarvis.brain.providers import build_providers

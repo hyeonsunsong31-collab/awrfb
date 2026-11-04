@@ -9,8 +9,8 @@ import cv2
 import numpy as np
 import pytest
 import yaml
-from tests.fakes.llm import ScriptedProvider, text
 
+from fakes.llm import ScriptedProvider, text
 from jarvis.brain.broker import LLMBroker
 from jarvis.fight.policy.coach import LIMITS, apply_advice, coach_match, load_coach_priors, parse_advice
 from jarvis.fight.policy.params import load_params

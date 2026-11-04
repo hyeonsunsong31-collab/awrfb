@@ -11,9 +11,9 @@ from pathlib import Path
 
 import psutil
 import pytest
-from tests.fakes.llm import ScriptedProvider, text
-from tests.fakes.platform import NOTEPAD, ROBLOX, FakeWindowManager, fake_platform
 
+from fakes.llm import ScriptedProvider, text
+from fakes.platform import NOTEPAD, ROBLOX, FakeWindowManager, fake_platform
 from jarvis.brain.agent import Agent, AgentTurn, ToolOutcome
 from jarvis.brain.broker import LLMBroker
 from jarvis.brain.memory import MemoryStore
