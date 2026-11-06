@@ -40,7 +40,9 @@ def load_skills(path: Path) -> list[dict]:
 def dedupe_skills(path: Path) -> int:
     """Keep the newest of near-identical requests with the same tool sequence. Returns how many remain."""
     kept: list[dict] = []
-    for s in sorted(load_skills(path), key=lambda s: -s.get("t", 0)):
+    rows = list(enumerate(load_skills(path)))
+    # Newest first; equal timestamps (coarse clocks) fall back to file order, which is append order.
+    for _i, s in sorted(rows, key=lambda r: (-r[1].get("t", 0), -r[0])):
         if any(k["tools"] == s["tools"] and fuzz.token_set_ratio(k["request"], s["request"], processor=utils.default_process) >= 90 for k in kept):
             continue
         kept.append(s)
