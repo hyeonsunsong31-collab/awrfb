@@ -20,6 +20,9 @@ dependencies = [
   "psutil>=5.9",
   "send2trash>=1.8",
   "websockets>=12",
+  # Windows' default asyncio loop (Proactor) lacks add_reader; pyzmq's asyncio sockets need tornado's
+  # selector thread there (the same setup Jupyter uses on Windows).
+  "tornado>=6.1; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]

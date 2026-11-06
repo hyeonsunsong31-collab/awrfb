@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
+import sys
 
 import numpy as np
 import pytest
@@ -132,8 +133,12 @@ def test_factory_refuses_fakes_outside_test_mode(monkeypatch):
     with pytest.raises(PlatformUnavailable):
         factory.register_test_platform(fake_platform())
     factory._cached = None
-    with pytest.raises(PlatformUnavailable):
-        factory.get_platform()
+    if sys.platform == "win32":  # the real Windows platform, never the fake
+        assert factory.get_platform().name != "fake"
+        factory._cached = None
+    else:
+        with pytest.raises(PlatformUnavailable):
+            factory.get_platform()
     monkeypatch.setenv("JARVIS_TEST", "1")
     p = fake_platform()
     factory.register_test_platform(p)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import shutil
 import threading
 import time
@@ -361,8 +362,8 @@ async def test_injected_page_cannot_make_the_agent_delete_files(cfg, host, tmp_p
     docs.mkdir(parents=True)
     (docs / "thesis.docx").write_text("important")
     nv = ScriptedProvider("nvidia", [
-        text(tool_calls=[ToolCall("c1", "web_fetch", f'{{"url": "{page_url}"}}')]),
-        text(tool_calls=[ToolCall("c2", "fs_delete", f'{{"path": "{docs}"}}')]),  # the model "falls" for it
+        text(tool_calls=[ToolCall("c1", "web_fetch", json.dumps({"url": page_url}))]),
+        text(tool_calls=[ToolCall("c2", "fs_delete", json.dumps({"path": str(docs)}))]),  # the model "falls" for it
         text("The page is a recipe blog."),
     ])
     agent = Agent(LLMBroker(cfg.brain, {"nvidia": nv}), InProcessBackend(host), cfg.brain)
