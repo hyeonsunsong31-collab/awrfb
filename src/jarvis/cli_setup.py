@@ -55,6 +55,9 @@ STEPS = (
          (("doctor", "--vram"),), windows_only=True),
     Step("autostart", "Start at logon", "Task Scheduler logon task with your normal rights (not a service).",
          (("autostart", "--enable"),), windows_only=True),
+    Step("selftest", "Check everything", "Every check this PC can run (voice round trip, HUD window, policy, audit...), "
+         "including your own voice through the microphone. The report goes into `jarvis report`.",
+         (("selftest", "--interactive"),)),
 )
 
 
@@ -94,5 +97,44 @@ def setup(
                         + "Start JARVIS with `jarvis start` and say 'Hey Jarvis' (or 자비스).", title="JARVIS"))
 
 
+def selftest(
+    live: bool = typer.Option(False, "--live", help="Also check Roblox: open UBG first (nothing is ever sent to the game)."),
+    interactive: bool = typer.Option(False, "--interactive", "-i", help="Also checks that need you: speak into the mic."),
+    only: str = typer.Option("", help="Run only these checks (comma-separated names)."),
+    as_json: bool = typer.Option(False, "--json", help="Print the JSON report."),
+) -> None:
+    """Check everything that can be checked on this PC; writes a report for `jarvis report`."""
+    from rich.table import Table
+
+    from jarvis.common.config import load_config
+    from jarvis.selftest import CHECKS, FAIL, Ctx, run_selftest, save_report, summary
+
+    names = {c.name for c in CHECKS}
+    wanted = {x.strip() for x in only.split(",") if x.strip()}
+    if wanted - names:
+        console.print(f"[red]unknown check(s)[/]: {', '.join(sorted(wanted - names))}; known: {', '.join(sorted(names))}")
+        raise typer.Exit(2)
+    ctx = Ctx(load_config(), live=live, interactive=interactive, say=lambda t: console.print(f"[cyan]{t}[/]"))
+    colors = {"pass": "green", "warn": "yellow", "fail": "red", "skip": "dim"}
+
+    def show(r) -> None:
+        if not as_json:
+            console.print(f"[{colors[r.status]}]{r.status.upper():4}[/] {r.name:22} {r.detail}")
+
+    results = run_selftest(ctx, wanted or None, on_result=show)
+    path = save_report(results, ctx)
+    if as_json:
+        console.print_json(path.read_text(encoding="utf-8"))
+    else:
+        s = summary(results)
+        t = Table.grid(padding=(0, 2))
+        t.add_row(*(f"[{colors[k]}]{v} {k}[/]" for k, v in s.items()))
+        console.print(t)
+        console.print(f"report: {path} (included in `jarvis report`)")
+    if any(r.status == FAIL for r in results):
+        raise typer.Exit(1)
+
+
 def register(app: typer.Typer) -> None:
     app.command()(setup)
+    app.command()(selftest)

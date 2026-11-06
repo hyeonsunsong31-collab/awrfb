@@ -87,6 +87,10 @@ class TtsRouter:
             self._engines[name] = eng
             return eng
 
+    def engine(self, name: str) -> TtsEngine | None:
+        """The engine itself (built on first use), bypassing the cache - for tests of the engines."""
+        return self._engine(name)
+
     def available(self) -> list[str]:
         return [n for n in self.chain() if self._engine(n) is not None]
 

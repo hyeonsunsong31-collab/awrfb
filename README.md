@@ -118,6 +118,7 @@ The wizard runs these steps one at a time. You can skip any of them and re-run i
 | Calibration during a private-server match: HUD bars, popups, keybinds, latency | `jarvis calibrate hud\|popup\|keys\|latency` |
 | VRAM tier with Roblox running | `jarvis doctor --vram` |
 | Start at logon | `jarvis autostart --enable` |
+| Check everything, including your voice through the mic | `jarvis selftest --interactive` |
 
 Then start it:
 
@@ -208,7 +209,21 @@ What it will and won't do in the game:
 
 ### Acceptance tests on your PC
 
-Run these in a private server with a willing partner. Send the `jarvis report` zip with the results.
+First, with UBG open, run the automatic checks:
+
+```powershell
+.venv\Scripts\jarvis selftest --interactive --live
+```
+
+It checks the following and writes a report:
+
+- the voice round trip in both languages, the wake word, and that a synthetic voice cannot pass as you;
+- the safety policy and the audit log;
+- the HUD window: always on top, click-through, never takes focus;
+- real capture FPS and HUD reading;
+- that a fight key submitted while disarmed is refused and nothing reaches Roblox.
+
+Then run these in a private server with a willing partner. Send the `jarvis report` zip with the results.
 
 | Test | Partner does | Pass |
 |---|---|---|
@@ -264,6 +279,7 @@ a fight starts.
 | `jarvis start` / `stop` / `status` / `restart <proc>` | The whole system (the supervisor and its processes) |
 | `jarvis panic` | Emergency stop from a terminal |
 | `jarvis setup` | First-run wizard |
+| `jarvis selftest [--interactive] [--live]` | Every check this PC can run, with a report (`--live`: Roblox open; nothing is sent to the game) |
 | `jarvis doctor [--vram]` | Check the PC: GPU tier, Roblox, audio, models, API key, safety policy |
 | `jarvis chat`, `say`, `listen`, `enroll`, `voice` | Voice and chat tools |
 | `jarvis launch`, `fight`, `shadow`, `calibrate …` | Game |
@@ -388,4 +404,4 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
   확인하게 됩니다.
 - **실력:** 첫날의 전투 실력은 규칙 기반이라 평범합니다. 녹화된 대전이 쌓일수록 밤마다
   재학습하며, 측정상 더 나아진 모델만 적용합니다.
-- **결과 보내기:** 위의 S1–S4 테스트 결과와 `jarvis report` 파일을 보내 주시면 조정하겠습니다.
+- **결과 보내기:** UBG를 켠 채 `jarvis selftest --interactive --live`를 먼저 실행하세요. 그다음 위의 S1–S4 테스트 결과와 `jarvis report` 파일을 보내 주시면 조정하겠습니다.
