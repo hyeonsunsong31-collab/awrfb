@@ -77,6 +77,16 @@ How the work is split by GPU memory:
 
 `jarvis doctor --vram` measures this with Roblox running and picks the tier for you.
 
+**During a fight, the GPU belongs to Roblox.** Free VRAM can still run short later, for example on a
+heavy map or with a browser open, and Roblox's frame rate can drop. When either stays low, JARVIS steps
+down one level at a time:
+
+1. It unloads its GPU voice and any local LLM models, and speaks with the CPU voice and pre-rendered
+   callouts.
+2. It moves speech recognition to the CPU too.
+
+Everything is restored a quiet minute after the fight, and the HUD tells you each step.
+
 ## Install
 
 In PowerShell, from the repository folder:

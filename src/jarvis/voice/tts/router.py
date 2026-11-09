@@ -24,6 +24,9 @@ ENGINE_RETRY_S = 300.0  # an engine that failed to load is retried after this lo
 SYNTH_RETRY_S = 60.0  # an engine that failed a synthesis is skipped for this long
 
 
+GPU_ENGINES = frozenset({"qwen3"})  # engines that hold VRAM while loaded
+
+
 @dataclass
 class Synth:
     audio: Audio
@@ -44,14 +47,20 @@ class TtsRouter:
         self._clock = clock
         self.cache_max_chars = cache_max_chars
         self.last_error: str | None = None
+        self.gpu_allowed = True  # the GPU guard turns this off during a fight when VRAM runs short
 
     # ------------------------------------------------------------------ engines
-    def chain(self) -> list[str]:
+    def configured(self) -> list[str]:
+        """The voice chain as configured (the first one is "the" voice, used for cache identity)."""
         names = ([] if self.cfg.engine == "auto" else [self.cfg.engine]) + list(self.cfg.fallback_chain)
         return [n for i, n in enumerate(names) if n in self._factories and n not in names[:i]]
 
+    def chain(self) -> list[str]:
+        """The engines that may render right now."""
+        return [n for n in self.configured() if self.gpu_allowed or n not in GPU_ENGINES]
+
     def primary(self) -> str:
-        ch = self.chain()
+        ch = self.configured()
         return ch[0] if ch else "none"
 
     def voice_id(self, name: str | None = None) -> str:
@@ -91,24 +100,57 @@ class TtsRouter:
         """The engine itself (built on first use), bypassing the cache - for tests of the engines."""
         return self._engine(name)
 
+    def set_gpu_allowed(self, allowed: bool) -> list[str]:
+        """Off: GPU voices are unloaded (VRAM goes back to Roblox) and the CPU voice renders instead.
+        Pre-rendered audio of the configured voice stays usable. Returns the engines unloaded."""
+        self.gpu_allowed = allowed
+        dropped: list[str] = []
+        if not allowed:
+            with self._load_lock:
+                for name in [n for n in self._engines if n in GPU_ENGINES]:
+                    eng = self._engines.pop(name)
+                    close = getattr(eng, "close", None)
+                    if callable(close):
+                        try:
+                            close()
+                        except Exception as e:
+                            log.warning("closing TTS engine %s failed: %s", name, e)
+                    dropped.append(name)
+        return dropped
+
     def available(self) -> list[str]:
         return [n for n in self.chain() if self._engine(n) is not None]
 
     # ------------------------------------------------------------------ keys
-    def phrase_key(self, key: str, lang: str) -> str:
-        return TtsCache.make_key("phrase", key, lang, self.voice_id())
+    def phrase_key(self, key: str, lang: str, engine: str | None = None) -> str:
+        return TtsCache.make_key("phrase", key, lang, self.voice_id(engine))
 
-    def _text_key(self, text: str, lang: str) -> str:
-        return TtsCache.make_key("text", lang, text, self.voice_id())
+    def _text_key(self, text: str, lang: str, engine: str | None = None) -> str:
+        return TtsCache.make_key("text", lang, text, self.voice_id(engine))
+
+    def _key(self, text: str, lang: str, phrase: str | None, engine: str) -> str | None:
+        if phrase is not None:
+            return self.phrase_key(phrase, lang, engine)
+        return self._text_key(text, lang, engine) if len(text) <= self.cache_max_chars else None
+
+    def _lookup_order(self, fighting: bool) -> list[str]:
+        """Whose cached audio may be played: the configured voice; other voices' renderings only when the
+        configured voice cannot render now (fight, unloaded for VRAM, or failing) - never instead of it."""
+        cfg = self.configured()
+        if not cfg:
+            return []
+        first = cfg[0]
+        unavailable = fighting or first not in self.chain() or self._down_until.get(first, 0.0) > self._clock()
+        return cfg if unavailable else [first]
 
     # ------------------------------------------------------------------ synthesis
-    def synth(self, text: str, lang: str, *, fighting: bool = False, key: str | None = None) -> Synth | None:
+    def synth(self, text: str, lang: str, *, fighting: bool = False, phrase: str | None = None) -> Synth | None:
         text = text.strip()
         if not text:
             return None
-        k = key or (self._text_key(text, lang) if len(text) <= self.cache_max_chars else None)
-        if k:
-            cached = self.cache.get(k)
+        for name in self._lookup_order(fighting):
+            k = self._key(text, lang, phrase, name)
+            cached = self.cache.get(k) if k else None
             if cached is not None:
                 return Synth(cached, "cache", True)
         if fighting:
@@ -133,6 +175,7 @@ class TtsRouter:
                 continue
             if len(audio.pcm) == 0:
                 continue
+            k = self._key(text, lang, phrase, name)  # stored as the voice that actually spoke it
             if k:
                 self.cache.put(k, audio)
             return Synth(audio, name, False)
@@ -140,7 +183,7 @@ class TtsRouter:
 
     def phrase(self, key: str, lang: str, *, fighting: bool = False) -> Synth | None:
         text = PHRASES[key].get(lang) or PHRASES[key]["en"]
-        return self.synth(text, lang, fighting=fighting, key=self.phrase_key(key, lang))
+        return self.synth(text, lang, fighting=fighting, phrase=key)
 
     def prerender(self, keys: Iterable[str] | None = None, langs: Iterable[str] = ("ko", "en")) -> int:
         """Render fixed phrases into the cache (call outside fights). Returns how many were rendered."""

@@ -144,6 +144,11 @@ class Core:
         self.fight_state = "detached"
         self.last_match: dict[str, Any] | None = None
         self._drift_said = ""
+        from jarvis.gpu_guard import GpuGuard, GuardConfig
+
+        self.gpu_guard = GpuGuard(GuardConfig(min_free_mb=cfg.tiers.min_free_mb_runtime))
+        self._fight_fps: float | None = None
+        self._stt_moved = False
         self.want_voice = voice and cfg.voice.enabled
         self.runtime = None
         self.session: VoiceSession | None = None
@@ -429,6 +434,9 @@ class Core:
             return
         if topic == "fight.state":
             self.fight_state = str(msg.get("new", self.fight_state))
+        elif topic == "fight.telemetry":
+            fps = msg.get("fps")
+            self._fight_fps = float(fps) if isinstance(fps, (int, float)) else None
         elif topic == "fight.callout":
             key = str(msg.get("key", ""))
             if key == "match_end":
@@ -441,6 +449,65 @@ class Core:
                 await self.session.callout("panic", msg)
         elif topic == "kill" and self.session is not None:
             self.session.stop_all()  # someone else pulled the kill switch; never re-broadcast
+
+    async def _gpu_guard_loop(self) -> None:
+        """Every 2 s during a fight (and until restored after it): free VRAM + Roblox fps -> step down/up."""
+        from jarvis.common.gpu import primary_gpu
+
+        while True:
+            await asyncio.sleep(2.0)
+            fighting = self.fight_active()
+            if not fighting and self.gpu_guard.level == 0:
+                continue
+            try:
+                g = await asyncio.to_thread(primary_gpu)
+                actions = self.gpu_guard.update(time.monotonic(), fighting, g.free_mb if g else None,
+                                                self._fight_fps if fighting else None)
+                for a in actions:
+                    await self._gpu_action(a)
+            except Exception:
+                log.exception("GPU guard step failed")
+
+    async def _gpu_action(self, action: str) -> None:
+        from jarvis.gpu_guard import RESTORE, STT_OFF_GPU, VOICE_OFF_GPU, unload_local_models
+
+        rt = self.runtime
+        why = self.gpu_guard.reason
+        if action == VOICE_OFF_GPU:
+            dropped = rt.router.set_gpu_allowed(False) if rt is not None and getattr(rt, "router", None) else []
+            unloaded: list[str] = []
+            for ep in self.cfg.brain.endpoints.values():
+                if ep.kind == "ollama":
+                    unloaded += await asyncio.to_thread(unload_local_models, ep.base_url)
+            self.publish("sys.notice", {"text": f"GPU guard: {why} - my GPU voice and local models are unloaded for this fight"
+                                                + (f" ({', '.join(dropped + unloaded)})" if dropped or unloaded else "")})
+        elif action == STT_OFF_GPU:
+            if await self._move_stt("cpu"):
+                self._stt_moved = True
+                self.publish("sys.notice", {"text": f"GPU guard: {why} - speech recognition moved to the CPU for this fight"})
+        elif action == RESTORE:
+            if rt is not None and getattr(rt, "router", None):
+                rt.router.set_gpu_allowed(True)  # GPU voice reloads on its next sentence
+            if self._stt_moved and await self._move_stt(self.cfg.voice.stt.device):
+                self._stt_moved = False
+            self.publish("sys.notice", {"text": "GPU guard: fight over - GPU voice and speech recognition restored"})
+
+    async def _move_stt(self, device: str) -> bool:
+        """Load Whisper on ``device`` and swap it in; a transcription already running finishes on the old one."""
+        rt = self.runtime
+        if rt is None or self.session is None or getattr(rt, "stt", None) is None:
+            return False
+        from jarvis.voice.stt import WhisperStt
+
+        try:
+            new = await asyncio.to_thread(WhisperStt.from_config, self.cfg.voice.stt.model_copy(update={"device": device}),
+                                          self.paths.models)
+        except Exception as e:
+            log.warning("could not move speech recognition to %s: %s", device, e)
+            return False
+        rt.stt = new
+        self.session.stt = new
+        return True
 
     async def _announce_drift(self, reason: str) -> None:
         """Said once per distinct reason: the fighter will refuse until the HUD is recalibrated."""
@@ -494,6 +561,7 @@ class Core:
             self.session = self._text_session()
             await self.session.start()
         self._spawn(self._bus_listener())
+        self._spawn(self._gpu_guard_loop())
         if self.hub is not None:
             try:
                 await self.hub.start()

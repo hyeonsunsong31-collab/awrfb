@@ -114,3 +114,40 @@ def test_callout_mapping_covers_fightd_events():
     assert callout_for_event("armed", {}) == "armed"
     assert callout_for_event("something_else", {}) is None
     assert all({"ko", "en"} <= set(v) for v in PHRASES.values())
+
+
+class ClosableEngine(FakeEngine):
+    def __init__(self, name: str, fail: bool = False) -> None:
+        super().__init__(name, fail)
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_fallback_audio_is_cached_as_the_voice_that_spoke(tmp_path):
+    qwen, sup = FakeEngine("qwen3", fail=True), FakeEngine("supertonic")
+    r, clock = _router(tmp_path, {"qwen3": qwen, "supertonic": sup, "edge": FakeEngine("edge")})
+    assert r.synth("네, 주인님.", "ko").engine == "supertonic"  # qwen3 failed: the CPU voice spoke
+    clock.t += 61
+    qwen.fail = False
+    again = r.synth("네, 주인님.", "ko")  # the configured voice works again: it speaks, not the cached fallback
+    assert again.engine == "qwen3" and not again.cached
+    assert r.synth("네, 주인님.", "ko").cached
+
+
+def test_gpu_voice_can_be_unloaded_for_a_fight_and_restored(tmp_path):
+    qwen, sup = ClosableEngine("qwen3"), FakeEngine("supertonic")
+    r, _ = _router(tmp_path, {"qwen3": qwen, "supertonic": sup, "edge": FakeEngine("edge")}, fight_engine="cache_only")
+    assert r.prerender(keys=["stock_won"], langs=["en"]) == 1 and qwen.calls  # rendered in the GPU voice
+    assert r.synth("A long sentence spoken before the fight by the GPU voice.", "en").engine == "qwen3"
+    assert r.set_gpu_allowed(False) == ["qwen3"] and qwen.closed
+    assert "qwen3" not in r.chain() and r.primary() == "qwen3"  # identity stays the configured voice
+    assert r.synth("Another long sentence while the GPU voice is unloaded.", "en").engine == "supertonic"
+    hit = r.phrase("stock_won", "en", fighting=True)  # the pre-rendered GPU-voice callout still plays
+    assert hit is not None and hit.cached
+    n = len(qwen.calls)
+    r.set_gpu_allowed(True)
+    assert "qwen3" in r.chain()
+    assert r.synth("Back to the GPU voice after the fight, with a long sentence.", "en").engine == "qwen3"
+    assert len(qwen.calls) == n + 1
