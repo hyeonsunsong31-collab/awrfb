@@ -163,6 +163,49 @@ def train_threat_cmd(
         console.print("promoted: the next arm uses it")
 
 
+@train_app.command("wakeword")
+def train_wakeword_cmd(
+    name: str = typer.Option("jarvis_ko", help="The name used with `jarvis wakeword record`."),
+    epochs: int = typer.Option(40, help="Training epochs."),
+    tts: bool = typer.Option(True, help="Add synthetic takes from the local voice (several voices and speeds)."),
+    activate: bool = typer.Option(True, help="Use it right away (adds it to voice.wake.extra_models)."),
+) -> None:
+    """Train your personal wake word (e.g. 자비스) from your recorded takes; runs next to "hey jarvis"."""
+    from jarvis.common.config import update_user_config
+    from jarvis.voice.wakeword_train import (
+        OwwFeatures,
+        load_data,
+        synthesize_takes,
+        train_wakeword,
+        write_wav,
+    )
+
+    cfg = _cfg()
+    paths = cfg.paths().ensure()
+    d = paths.datasets / "wakeword" / name
+    if not (d / "pos").exists():
+        console.print(f"[red]no takes yet[/] - run `jarvis wakeword record --name {name}` first")
+        raise typer.Exit(1)
+    if tts and not (d / "synth_pos").exists():
+        phrases = json.loads((d / "phrases.json").read_text(encoding="utf-8")) if (d / "phrases.json").exists() else ["자비스"]
+        console.print("synthesizing extra takes with the local voice...")
+        try:
+            pos, neg = synthesize_takes(cfg, phrases)
+            for i, x in enumerate(pos):
+                write_wav(d / "synth_pos" / f"s{i:04d}.wav", x)
+            for i, x in enumerate(neg):
+                write_wav(d / "synth_neg" / f"s{i:04d}.wav", x)
+        except Exception as e:
+            console.print(f"[yellow]no synthetic takes ({e}); training on your recordings only[/]")
+    m = train_wakeword(load_data(d), paths.models, name, OwwFeatures(paths.models), epochs=epochs, progress=console.print)
+    console.print(f"model: {m['path']}\nheld-out recall {m['recall_heldout']:.0%}, threshold {m['threshold']}, "
+                  f"~{m['false_wakes_per_hour_est']} false wakes/h before the second-stage check (your voice + the name)")
+    if activate:
+        extra = sorted({*cfg.voice.wake.extra_models, name})
+        update_user_config(paths, {"voice": {"wake": {"extra_models": extra, "model_thresholds": {name: m["threshold"]}}}})
+        console.print("activated - restart the voice with `jarvis restart core` (or `jarvis start`)")
+
+
 @train_app.command("detector")
 def train_detector_cmd(
     epochs: int = typer.Option(60),

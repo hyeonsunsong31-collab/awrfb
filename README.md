@@ -73,7 +73,7 @@ How the work is split by GPU memory:
 |---|---|---|---|
 | 6 GB | Whisper large-v3-turbo (int8, GPU) | Supertonic (CPU); Edge-TTS cloud fallback | qwen3:4b (CPU) |
 | 8 GB | same | Qwen3-TTS 0.6B (GPU, outside fights) | same |
-| 12 GB+ | same | Qwen3-TTS 1.7B | qwen3:8b on the GPU outside fights |
+| 12 GB+ | same | Qwen3-TTS 1.7B | qwen3:8b plus a local vision model (qwen2.5vl:7b) on the GPU outside fights |
 
 `jarvis doctor --vram` measures this with Roblox running and picks the tier for you.
 
@@ -154,6 +154,28 @@ Then start it:
   run `jarvis chat "..."`.
 - **Interpreter mode:** "통역 모드" / "interpreter mode" translates Korean↔English speech to speech.
   "통역 끝" / "stop translating" ends it.
+
+### Your own wake word: "자비스"
+
+The built-in wake word is the English "Hey Jarvis". To wake JARVIS with just **"자비스"**, train a
+personal wake word in your own voice. It takes about 10 minutes:
+
+```powershell
+.venv\Scripts\jarvis wakeword record
+.venv\Scripts\jarvis train wakeword
+.venv\Scripts\jarvis restart core
+```
+
+1. **Record.** You say "자비스" and "헤이 자비스" 12 times each, then read a few ordinary sentences
+   that must not wake it. Finally, play a game or a video for a minute so JARVIS can learn your
+   background sound.
+2. **Train.** JARVIS adds speed, echo and noise variations of your takes and synthetic takes from its
+   local voice. It trains a small model on top of openWakeWord's speech features, and reports how well
+   it recognized takes it never saw during training.
+3. **Use.** The new model runs next to "Hey Jarvis", so either phrase works. The second check, your
+   voice and the name heard in the transcript, still applies.
+
+To add more takes, run `record` again, then train again.
 
 Common commands. These are handled on the PC without an LLM, so they work offline:
 
@@ -292,6 +314,7 @@ a fight starts.
 | `jarvis selftest [--interactive] [--live]` | Every check this PC can run, with a report (`--live`: Roblox open; nothing is sent to the game) |
 | `jarvis doctor [--vram]` | Check the PC: GPU tier, Roblox, audio, models, API key, safety policy |
 | `jarvis chat`, `say`, `listen`, `enroll`, `voice` | Voice and chat tools |
+| `jarvis wakeword record`, `jarvis train wakeword` | Your own wake word (e.g. "자비스") |
 | `jarvis launch`, `fight`, `shadow`, `calibrate …` | Game |
 | `jarvis replay`, `overlay`, `report` | Proof and tuning |
 | `jarvis learn …`, `train …`, `models …`, `dataset …`, `labels`, `coach` | Learning |
@@ -384,6 +407,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 **사용법**
 
 - **부르기:** "헤이 자비스". 대답 뒤 8초 동안은 다시 부르지 않고 이어서 말할 수 있습니다.
+- **"자비스"만으로 부르기:** `jarvis wakeword record`로 내 목소리를 녹음한 뒤 `jarvis train wakeword`로
+  학습하면, "자비스" 한 마디로 부를 수 있습니다(약 10분 소요). "헤이 자비스"도 계속 작동합니다.
 - **끼어들기:** 그냥 말하면 바로 목소리를 줄이고 들어 줍니다. "멈춰"라고 하면 멈춥니다.
 - **음소거:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>M</kbd>, HUD 버튼, 트레이, "음소거".
   - 하드 음소거는 마이크를 완전히 끄므로 단축키, HUD, 트레이로 해제합니다.

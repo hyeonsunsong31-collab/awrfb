@@ -87,6 +87,8 @@ class BrainConfig(_Model):
 class WakeConfig(_Model):
     model: str = "hey_jarvis"
     threshold: float = 0.5
+    extra_models: list[str] = Field(default_factory=list)  # e.g. a personal "자비스" (`jarvis train wakeword`)
+    model_thresholds: dict[str, float] = Field(default_factory=dict)  # per model; others use `threshold`
     patience_frames: int = 2
     second_stage: bool = True
     second_stage_keywords: list[str] = Field(

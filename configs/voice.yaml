@@ -7,6 +7,8 @@ voice:
   wake:
     model: hey_jarvis
     threshold: 0.5
+    extra_models: []            # e.g. [jarvis_ko] after `jarvis wakeword record` + `jarvis train wakeword`
+    model_thresholds: {}        # per extra model (training suggests one), e.g. {jarvis_ko: 0.62}
     patience_frames: 2
     second_stage: true          # owner voice + Whisper must hear "jarvis/자비스" too
     second_stage_keywords: [jarvis, jervis, javis, 자비스, 재비스, 쟈비스]

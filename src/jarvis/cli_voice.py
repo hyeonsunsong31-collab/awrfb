@@ -308,7 +308,70 @@ def setup_voice(device: str = typer.Option("cuda:0", help="Torch device for Qwen
     console.print(f"saved {wav}; reference recorded in {p}. Try: jarvis say \"Good evening, sir.\"")
 
 
+wakeword_app = typer.Typer(help="Your own wake word (e.g. 자비스): record takes, then `jarvis train wakeword`.",
+                           no_args_is_help=True)
+
+
+@wakeword_app.command("record")
+def wakeword_record(
+    name: str = typer.Option("jarvis_ko", help="Model name (letters, digits, _)."),
+    phrases: str = typer.Option("자비스,헤이 자비스", help="Comma-separated wake phrases."),
+    takes: int = typer.Option(12, help="Takes per phrase (more = better; 12+ recommended)."),
+    sentences: bool = typer.Option(True, help="Also read a few ordinary sentences (things that must NOT wake it)."),
+    background: float = typer.Option(60.0, help="Seconds of background audio to record (0 = skip)."),
+) -> None:
+    """Record your wake-word takes (and things that must not wake JARVIS) for `jarvis train wakeword`."""
+    import json as _json
+    import time as _time
+
+    from jarvis.voice.wakeword_train import (
+        READ_ALOUD,
+        beep,
+        record_loopback,
+        record_mic,
+        slug,
+        take_problem,
+        trim_speech,
+        write_wav,
+    )
+
+    cfg = _cfg()
+    d = cfg.paths().ensure().datasets / "wakeword" / name
+    words = [x.strip() for x in phrases.split(",") if x.strip()]
+    (d).mkdir(parents=True, exist_ok=True)
+    (d / "phrases.json").write_text(_json.dumps(words, ensure_ascii=False), encoding="utf-8")
+    dev = cfg.voice.input_device
+    console.print(f"Recording into {d}. Speak naturally, at your normal distance from the mic.")
+    for w in words:
+        got = len(list((d / "pos").glob(f"{slug(w)}_*.wav"))) if (d / "pos").exists() else 0
+        while got < takes:
+            console.print(f"[cyan][{got + 1}/{takes}][/] after the beep, say: [bold]{w}[/]")
+            beep()
+            x = trim_speech(record_mic(2.5, dev))
+            why = take_problem(x)
+            if why:
+                console.print(f"[yellow]{why}[/]")
+                continue
+            write_wav(d / "pos" / f"{slug(w)}_{got:03d}.wav", x)
+            got += 1
+    if sentences:
+        console.print("Now read each sentence aloud (they must NOT wake JARVIS):")
+        for i, line in enumerate(READ_ALOUD):
+            console.print(f"[cyan]{i + 1}/{len(READ_ALOUD)}[/] {line}")
+            beep()
+            write_wav(d / "neg" / f"read_{i:02d}_{int(_time.time())}.wav", record_mic(5.0, dev))
+    if background > 0:
+        console.print(f"Play your game or a video with sound for {background:.0f} s (recording what the speakers play)...")
+        bg = record_loopback(background)
+        if bg is None:
+            console.print("[yellow]no speaker loopback here - recording the room through the mic instead[/]")
+            bg = record_mic(min(background, 30.0), dev)
+        write_wav(d / "bg" / f"bg_{int(_time.time())}.wav", bg)
+    console.print(f"Done. Next: [bold]jarvis train wakeword --name {name}[/]")
+
+
 def register(app: typer.Typer) -> None:
+    app.add_typer(wakeword_app, name="wakeword")
     app.command()(probe)
     app.command("api-key")(api_key)
     app.command()(chat)

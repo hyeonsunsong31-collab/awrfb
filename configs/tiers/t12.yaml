@@ -1,4 +1,5 @@
-# 12 GB+ cards: larger voice model, local 8B LLM on the GPU outside fights, local vision labelling.
+# 12 GB+ cards: larger voice model, local 8B LLM and a local vision model (screen understanding when the
+# cloud is unavailable) on the GPU outside fights - the GPU guard unloads them if a fight needs the memory.
 voice:
   stt:
     model: large-v3-turbo
@@ -15,7 +16,7 @@ brain:
     classifier: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:8b"]}
     translator: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:8b"]}
     coach: {chain: ["nvidia:nvidia/nemotron-3-super-120b-a12b", "local:qwen3:8b"]}
-    vision: {chain: ["nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b", "local:gemma4"]}
+    vision: {chain: ["nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b", "local:qwen2.5vl:7b"]}
     learner: {chain: ["local:qwen3:8b", "nvidia:nvidia/nemotron-3-super-120b-a12b"]}
 fight:
   perception:

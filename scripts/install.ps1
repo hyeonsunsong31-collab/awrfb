@@ -107,6 +107,16 @@ Invoke-Checked 'uv' @('pip', 'install', '--python', $Py, '--reinstall', 'onnxrun
 & $Py -c "import onnxruntime as o; p=o.get_available_providers(); print('    ONNX Runtime providers:', p); import sys; sys.exit(0 if 'CUDAExecutionProvider' in p else 3)"
 if ($LASTEXITCODE -ne 0) { Warn 'CUDAExecutionProvider is not available - check the NVIDIA driver (jarvis doctor).' }
 
+if (Have 'ollama') {
+    Step 'Local models for offline use (Ollama)'
+    $local = @('qwen3:4b')
+    if ($vramMb -ge 11500) { $local += @('qwen3:8b', 'qwen2.5vl:7b') }  # 12 GB+: bigger chat model + local vision
+    foreach ($m in $local) {
+        & ollama pull $m
+        if ($LASTEXITCODE -ne 0) { Warn "ollama could not pull $m (is the Ollama app running?) - JARVIS uses the cloud only" }
+    }
+}
+
 # ---------------------------------------------------------------------------------------- 3. HUD
 if (-not $SkipHud) {
     Step 'Holographic HUD (Electron)'
